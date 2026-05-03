@@ -5,21 +5,25 @@ import (
     "net"
 )
 
-func main() {
-    // Connect to the server
-    conn, err := net.Dial("tcp", "localhost:8080")
-    if err != nil {
-        fmt.Println(err)
-        return
-    }
+type Publisher struct {
+	name string
+}
 
-    // Send some data to the server
-    _, err = conn.Write([]byte("Hello, server!"))
-    if err != nil {
-        fmt.Println(err)
-        return
-    }
+func (p Publisher) sendMessage() {
+	// Connect to the server
+	conn, err := net.Dial("tcp", "localhost:8080")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
-    // Close the connection
-    conn.Close()
+	// Send some data to the server
+	_, err = conn.Write([]byte("Hello, server!"))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	// Close the connection
+	conn.Close()
 }

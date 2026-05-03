@@ -5,7 +5,11 @@ import (
     "net"
 )
 
-func main() {
+type Subscriber struct {
+	name string
+}
+
+func (s Subscriber) initializeSubscriber() {
     // Listen for incoming connections on port 8080
     ln, err := net.Listen("tcp", ":8080")
     if err != nil {
@@ -27,17 +31,14 @@ func main() {
 }
 
 func handleConnection(conn net.Conn) {
-    // Close the connection when we're done
     defer conn.Close()
 
-    // Read incoming data
     buf := make([]byte, 1024)
-    _, err := conn.Read(buf)
+    n, err := conn.Read(buf)
     if err != nil {
         fmt.Println(err)
         return
     }
 
-    // Print the incoming data
-    fmt.Printf("Received: %s", buf)
+    fmt.Printf("Received: %s\n", buf[:n])
 }
