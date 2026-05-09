@@ -9,6 +9,7 @@ import (
 type Message struct {
 	Command string
 	Topic   string
+	Text    string
 }
 
 type Subscriber struct {
@@ -32,40 +33,17 @@ func (s Subscriber) subscribeToTopic() {
 
 	conn.Write(data)
 
-	// Close the connection
-	conn.Close()
-}
+	buf := make([]byte, 1024)
 
-func (s Subscriber) initializeSubscriber() {
-	// Listen for incoming connections on port 8080
-	ln, err := net.Listen("tcp", ":8080")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	// Accept incoming connections and handle them
 	for {
-		conn, err := ln.Accept()
+		n, err := conn.Read(buf)
 		if err != nil {
-			fmt.Println(err)
-			continue
+			fmt.Println("disconnected:", err)
+			conn.Close()
+			break
 		}
 
-		// Handle the connection in a new goroutine
-		go handleConnection(conn)
+		msg := string(buf[:n])
+		fmt.Println("received:", msg)
 	}
-}
-
-func handleConnection(conn net.Conn) {
-	defer conn.Close()
-
-	buf := make([]byte, 1024)
-	n, err := conn.Read(buf)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	fmt.Printf("Received: %s\n", buf[:n])
 }

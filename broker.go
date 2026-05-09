@@ -11,7 +11,7 @@ type Broker struct {
 }
 
 // var subscribers map[string][]*net.Conn
-var subscribers = make(map[string][]*net.Conn)
+var subscribers = make(map[string][]net.Conn)
 
 func (b Broker) initializeBroker() {
 
@@ -31,33 +31,42 @@ func (b Broker) initializeBroker() {
 		}
 
 		// Handle the connection in a new goroutine
-		go acceptSubscriber(conn)
+		go handleMessage(conn)
 	}
 }
 
-func acceptSubscriber(conn net.Conn) {
-	defer conn.Close()
-
+func handleMessage(conn net.Conn) {
 	buf := make([]byte, 1024)
-	n, err := conn.Read(buf)
-	if err != nil {
-		fmt.Println(err)
-		return
+
+	for {
+		n, err := conn.Read(buf)
+		if err != nil {
+			fmt.Println("client disconnected:", err)
+			return
+		}
+
+		var msg Message
+		err = json.Unmarshal(buf[:n], &msg)
+		if err != nil {
+			fmt.Println("invalid message format")
+			continue
+		}
+
+		switch msg.Command {
+
+		case "SUBSCRIBE":
+			fmt.Println("subscribe:", msg.Topic)
+			subscribers[msg.Topic] = append(subscribers[msg.Topic], conn)
+
+		case "PUBLISH":
+			fmt.Println("publish:", msg.Text)
+
+			for _, c := range subscribers[msg.Topic] {
+				_, err := c.Write([]byte(msg.Text))
+				if err != nil {
+					fmt.Println("write error:", err)
+				}
+			}
+		}
 	}
-
-	var msg Message
-
-	err = json.Unmarshal(buf[:n], &msg)
-	if err != nil {
-		fmt.Println("invalid message format")
-		return
-	}
-
-	if msg.Command == "SUBSCRIBE" {
-		fmt.Println("subscribe to topic:", msg.Topic)
-
-		subscribers[msg.Topic] = append(subscribers[msg.Topic], &conn)
-	}
-
-	fmt.Printf("%+v\n", subscribers)
 }

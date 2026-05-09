@@ -1,15 +1,12 @@
 package main
 
 import (
-    "fmt"
-    "net"
+	"encoding/json"
+	"fmt"
+	"net"
 )
 
-type Publisher struct {
-	name string
-}
-
-func (p Publisher) sendMessage() {
+func (p Publisher) publishToTopic() {
 	// Connect to the server
 	conn, err := net.Dial("tcp", "localhost:8080")
 	if err != nil {
@@ -17,13 +14,20 @@ func (p Publisher) sendMessage() {
 		return
 	}
 
-	// Send some data to the server
-	_, err = conn.Write([]byte("Hello, server!"))
-	if err != nil {
-		fmt.Println(err)
-		return
+	msg := Message{
+		Command: "PUBLISH",
+		Topic:   "orders",
+		Text:    "Test message",
 	}
+
+	data, _ := json.Marshal(msg)
+
+	conn.Write(data)
 
 	// Close the connection
 	conn.Close()
+}
+
+type Publisher struct {
+	name string
 }

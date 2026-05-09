@@ -5,7 +5,7 @@ import (
 )
 
 func main() {
-	//p1 := Publisher{name: "stefan"}
+	p1 := Publisher{name: "stefan"}
 	s1 := Subscriber{name: "also_stefan"}
 	b1 := Broker{name: "still_stefan"}
 
@@ -18,8 +18,11 @@ func main() {
 	// Better later: use sync.WaitGroup or channels
 	time.Sleep(1 * time.Second)
 
-	s1.subscribeToTopic()
+	go s1.subscribeToTopic()
 
+	time.Sleep(1 * time.Second)
+
+	p1.publishToTopic()
 	//p1.sendMessage()
 
 	// Keep program alive long enough to receive message
