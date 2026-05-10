@@ -1,5 +1,7 @@
 package main
 
+// this was AI generated
+
 import (
 	"encoding/json"
 	"net"
