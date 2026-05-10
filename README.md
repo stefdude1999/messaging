@@ -2,7 +2,7 @@
 
 ## What is Stefan Messaging
 
-Simple pub sub service. Allows the creation of arbitrary publishers and subscribers, and assigning topics to any subscribers, and sending messages to these topics. Subscribers can have several topics, and publishers can subscribe to any topics. Runs entirely in the CLI, and the user goes down a "tree" essentially of selecting next steps before an action is undertaken.
+Simple pub sub service. Allows the creation of arbitrary publishers and subscribers, and assigning topics to any subscribers, and sending messages to these topics. Subscribers can have several topics, and publishers can subscribe to any topics. Runs entirely in the CLI, and the user goes down a "tree" essentially of selecting next steps before an action is undertaken. Unsubscribe given a topic.
 
 ## How to run
 
