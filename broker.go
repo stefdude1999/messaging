@@ -4,13 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"sync"
 )
 
 type Broker struct {
+	mu   sync.RWMutex
 	name string
 }
 
 // var subscribers map[string][]*net.Conn
+
 var subscribers = make(map[string][]net.Conn)
 
 func (b Broker) initializeBroker() {
@@ -31,11 +34,11 @@ func (b Broker) initializeBroker() {
 		}
 
 		// Handle the connection in a new goroutine
-		go handleMessage(conn)
+		go handleMessage(conn, &b.mu)
 	}
 }
 
-func handleMessage(conn net.Conn) {
+func handleMessage(conn net.Conn, mu *sync.RWMutex) {
 	buf := make([]byte, 1024)
 
 	for {
@@ -56,17 +59,22 @@ func handleMessage(conn net.Conn) {
 
 		case "SUBSCRIBE":
 			fmt.Println("subscribe:", msg.Topic)
+
+			mu.Lock()
 			subscribers[msg.Topic] = append(subscribers[msg.Topic], conn)
+			mu.Unlock()
 
 		case "PUBLISH":
 			fmt.Println("publish:", msg.Text)
 
+			mu.RLock()
 			for _, c := range subscribers[msg.Topic] {
 				_, err := c.Write([]byte(msg.Text))
 				if err != nil {
 					fmt.Println("write error:", err)
 				}
 			}
+			mu.RUnlock()
 		}
 	}
 }

@@ -16,7 +16,7 @@ type Subscriber struct {
 	name string
 }
 
-func (s Subscriber) subscribeToTopic() {
+func (s Subscriber) subscribeToTopic(topic string) {
 	// Connect to the server
 	conn, err := net.Dial("tcp", "localhost:8080")
 	if err != nil {
@@ -26,7 +26,7 @@ func (s Subscriber) subscribeToTopic() {
 
 	msg := Message{
 		Command: "SUBSCRIBE",
-		Topic:   "orders",
+		Topic:   topic,
 	}
 
 	data, _ := json.Marshal(msg)
@@ -44,6 +44,6 @@ func (s Subscriber) subscribeToTopic() {
 		}
 
 		msg := string(buf[:n])
-		fmt.Println("received:", msg)
+		fmt.Println("received:", msg, " by subscriber: ", s.name)
 	}
 }

@@ -6,7 +6,7 @@ import (
 	"net"
 )
 
-func (p Publisher) publishToTopic() {
+func (p Publisher) publishToTopic(topic string, message string) {
 	// Connect to the server
 	conn, err := net.Dial("tcp", "localhost:8080")
 	if err != nil {
@@ -16,8 +16,8 @@ func (p Publisher) publishToTopic() {
 
 	msg := Message{
 		Command: "PUBLISH",
-		Topic:   "orders",
-		Text:    "Test message",
+		Topic:   topic,
+		Text:    message,
 	}
 
 	data, _ := json.Marshal(msg)
