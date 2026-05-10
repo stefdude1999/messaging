@@ -7,13 +7,15 @@ import (
 )
 
 type Message struct {
-	Command string
-	Topic   string
-	Text    string
+	Command    string
+	Topic      string
+	Text       string
+	connection net.Conn
 }
 
 type Subscriber struct {
-	name string
+	name   string
+	topics []string
 }
 
 func (s Subscriber) unsubscribeFromTopic(topic string) {
@@ -23,9 +25,16 @@ func (s Subscriber) unsubscribeFromTopic(topic string) {
 		return
 	}
 
+	for i := range s.topics {
+		if s.topics[i] == topic {
+			s.topics = append(s.topics[:i], s.topics[i+1:]...)
+		}
+	}
+
 	msg := Message{
-		Command: "UNSUBSCRIBE",
-		Topic:   topic,
+		Command:    "UNSUBSCRIBE",
+		Topic:      topic,
+		connection: conn,
 	}
 
 	data, _ := json.Marshal(msg)
@@ -33,13 +42,15 @@ func (s Subscriber) unsubscribeFromTopic(topic string) {
 	conn.Write(data)
 }
 
-func (s Subscriber) subscribeToTopic(topic string) {
+func (s *Subscriber) subscribeToTopic(topic string) {
 	// Connect to the server
 	conn, err := net.Dial("tcp", "localhost:8080")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+
+	s.topics = append(s.topics, topic)
 
 	msg := Message{
 		Command: "SUBSCRIBE",

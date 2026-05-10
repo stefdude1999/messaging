@@ -29,6 +29,25 @@ func (b *Broker) initializeBroker() {
 	b.serve(ln)
 }
 
+func removeSubscriber(subscribers map[string][]net.Conn, topic string, conn net.Conn) {
+	conns := subscribers[topic]
+
+	for i, c := range conns {
+		if c == conn {
+			// remove element i
+			conns = append(conns[:i], conns[i+1:]...)
+			break
+		}
+	}
+
+	// update map or delete key if empty
+	if len(conns) == 0 {
+		delete(subscribers, topic)
+	} else {
+		subscribers[topic] = conns
+	}
+}
+
 func (b *Broker) serve(ln net.Listener) {
 	for {
 		conn, err := ln.Accept()
@@ -69,7 +88,7 @@ func (b *Broker) handleMessage(conn net.Conn) {
 			fmt.Println("unsubscribe: ", msg.Topic)
 
 			b.mu.Lock()
-			delete(b.subscribers, msg.Topic)
+			removeSubscriber(b.subscribers, msg.Topic, msg.connection)
 			b.mu.Unlock()
 
 		case "PUBLISH":

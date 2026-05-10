@@ -20,7 +20,7 @@ func main() {
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
-		fmt.Print("Enter 1 to create a new subscriber, enter 2 to create a new publisher, 3 to assign a topic to a subscriber, 4 to publish to a topic, 5 to unsubscribe from a topic, enter 6 to exit: ")
+		fmt.Print("Enter 1 to create a new subscriber, enter 2 to create a new publisher, 3 to assign a topic to a subscriber, 4 to publish to a topic, 5 to unsubscribe from a topic, 6 to print out everything, enter 7 to exit: ")
 		input, err := reader.ReadString('\n')
 
 		if err != nil {
@@ -131,6 +131,19 @@ func main() {
 				println("was not able to find that subscriber: ")
 			}
 		case "6":
+			println("List of publishers: ")
+			for i := range pubs {
+				print(pubs[i].name)
+			}
+
+			println("List of subscribers and topics: ")
+			for i := range subs {
+				print(subs[i].name)
+				for j := range subs[i].topics {
+					print(" - ", subs[i].topics[j])
+				}
+			}
+		case "7":
 			return
 		default:
 			println("please enter a proper value")
