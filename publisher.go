@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+
+	"github.com/google/uuid"
 )
 
 func (p Publisher) publishToTopic(topic string, message string) {
@@ -14,10 +16,13 @@ func (p Publisher) publishToTopic(topic string, message string) {
 		return
 	}
 
+	guid := uuid.New()
+
 	msg := Message{
 		Command: "PUBLISH",
 		Topic:   topic,
 		Text:    message,
+		GUID:    guid.String(),
 	}
 
 	data, _ := json.Marshal(msg)

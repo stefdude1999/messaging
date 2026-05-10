@@ -11,6 +11,7 @@ type Message struct {
 	Topic      string
 	Text       string
 	connection net.Conn
+	GUID       string
 }
 
 type Subscriber struct {
