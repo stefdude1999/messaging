@@ -59,10 +59,17 @@ func (b *Broker) handleMessage(conn net.Conn) {
 		switch msg.Command {
 
 		case "SUBSCRIBE":
-			fmt.Println("subscribe:", msg.Topic)
+			fmt.Println("subscribe: ", msg.Topic)
 
 			b.mu.Lock()
 			b.subscribers[msg.Topic] = append(b.subscribers[msg.Topic], conn)
+			b.mu.Unlock()
+
+		case "UNSUBSCRIBE":
+			fmt.Println("unsubscribe: ", msg.Topic)
+
+			b.mu.Lock()
+			delete(b.subscribers, msg.Topic)
 			b.mu.Unlock()
 
 		case "PUBLISH":

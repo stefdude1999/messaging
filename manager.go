@@ -20,7 +20,7 @@ func main() {
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
-		fmt.Print("Enter 1 to create a new subscriber, enter 2 to create a new publisher, 3 to assign a topic to a subscriber, 4 to publish to a topic, enter 5 to exit: ")
+		fmt.Print("Enter 1 to create a new subscriber, enter 2 to create a new publisher, 3 to assign a topic to a subscriber, 4 to publish to a topic, 5 to unsubscribe from a topic, enter 6 to exit: ")
 		input, err := reader.ReadString('\n')
 
 		if err != nil {
@@ -109,6 +109,28 @@ func main() {
 				println("was not able to find that publish: ")
 			}
 		case "5":
+			fmt.Println("enter the name of the subscriber you're looking for: ")
+			subscriber_name, err := reader.ReadString('\n')
+			if err != nil {
+				// Handle any read errors (e.g., EOF)
+				fmt.Printf("Error reading input: %v\n", err)
+				break
+			}
+
+			to_find := findSub(subs, subscriber_name)
+			if to_find != nil {
+				println("Found subscriber. Now please enter topic name you'd like to unsubscribe from: ")
+				topic_name, err := reader.ReadString('\n')
+				if err != nil {
+					// Handle any read errors (e.g., EOF)
+					fmt.Printf("Error reading input: %v\n", err)
+					break
+				}
+				wg.Go(func() { to_find.unsubscribeFromTopic(topic_name) })
+			} else {
+				println("was not able to find that subscriber: ")
+			}
+		case "6":
 			return
 		default:
 			println("please enter a proper value")

@@ -16,6 +16,23 @@ type Subscriber struct {
 	name string
 }
 
+func (s Subscriber) unsubscribeFromTopic(topic string) {
+	conn, err := net.Dial("tcp", "localhost:8080")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	msg := Message{
+		Command: "UNSUBSCRIBE",
+		Topic:   topic,
+	}
+
+	data, _ := json.Marshal(msg)
+
+	conn.Write(data)
+}
+
 func (s Subscriber) subscribeToTopic(topic string) {
 	// Connect to the server
 	conn, err := net.Dial("tcp", "localhost:8080")
