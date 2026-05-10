@@ -16,43 +16,46 @@ type Message struct {
 type Subscriber struct {
 	name   string
 	topics []string
+	conns  map[string]net.Conn
 }
 
-func (s Subscriber) unsubscribeFromTopic(topic string) {
-	conn, err := net.Dial("tcp", "localhost:8080")
-	if err != nil {
-		fmt.Println(err)
+func (s *Subscriber) unsubscribeFromTopic(topic string) {
+	conn, ok := s.conns[topic]
+	if !ok {
+		fmt.Println("not subscribed to topic:", topic)
 		return
 	}
 
 	for i := range s.topics {
 		if s.topics[i] == topic {
 			s.topics = append(s.topics[:i], s.topics[i+1:]...)
+			break
 		}
 	}
+	delete(s.conns, topic)
 
 	msg := Message{
-		Command:    "UNSUBSCRIBE",
-		Topic:      topic,
-		connection: conn,
+		Command: "UNSUBSCRIBE",
+		Topic:   topic,
 	}
 
 	data, _ := json.Marshal(msg)
-
 	conn.Write(data)
+	conn.Close()
 }
 
 func (s *Subscriber) subscribeToTopic(topic string) {
-	// Connect to the server
 	conn, err := net.Dial("tcp", "localhost:8080")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	//really dumb way to do this because it doesn't account for a failure to subscribe to a topic if the broker's down. Also needlessly complicated.
-	//use one shared structure to keep track of everything
 	s.topics = append(s.topics, topic)
+	if s.conns == nil {
+		s.conns = make(map[string]net.Conn)
+	}
+	s.conns[topic] = conn
 
 	msg := Message{
 		Command: "SUBSCRIBE",

@@ -88,7 +88,7 @@ func (b *Broker) handleMessage(conn net.Conn) {
 			fmt.Println("unsubscribe: ", msg.Topic)
 
 			b.mu.Lock()
-			removeSubscriber(b.subscribers, msg.Topic, msg.connection)
+			removeSubscriber(b.subscribers, msg.Topic, conn)
 			b.mu.Unlock()
 
 		case "PUBLISH":
