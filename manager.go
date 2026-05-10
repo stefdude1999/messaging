@@ -1,30 +1,23 @@
 package main
 
 import (
-	"time"
+	//"time"
+	"sync"
 )
 
 func main() {
-	p1 := Publisher{name: "stefan"}
-	s1 := Subscriber{name: "also_stefan"}
-	b1 := Broker{name: "still_stefan"}
+	wg := sync.WaitGroup{}
+	p1 := Publisher{name: "publisher_1"}
+	s1 := Subscriber{name: "subscriber_1"}
+	b1 := Broker{name: "broker"}
 
-	//go s1.initializeSubscriber()
 
-	go b1.initializeBroker()
+	wg.Go(func() { b1.initializeBroker() })
+ 
 
-	// Give the server a moment to start
-	// (not ideal, but fine for now)
-	// Better later: use sync.WaitGroup or channels
-	time.Sleep(1 * time.Second)
+	wg.Go(func() {s1.subscribeToTopic() })
 
-	go s1.subscribeToTopic()
+	wg.Go(func() {p1.publishToTopic() })
 
-	time.Sleep(1 * time.Second)
-
-	p1.publishToTopic()
-	//p1.sendMessage()
-
-	// Keep program alive long enough to receive message
-	time.Sleep(1 * time.Second)
+	wg.Wait()
 }
