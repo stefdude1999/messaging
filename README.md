@@ -14,3 +14,14 @@ Clone the repo, and then run "go run .", and follow the instructions in the prom
 - Use wildcards when publishing messages. Right now, you have to manually type out the topic you wish to publish to. I'd like to have something like * which publishes to every available topic, and then like orders.* which would publish to everything that has the suffix of "orders", and then even something like a.*.b, etc 
 - Currently runs in a big nasty for loop with various substeps that check previous input before asking for further input, which can get quite complicated as the project grows and more features are added. I would like to make it more like an API server, where the user can make POST/GET/UPDATE requests to add pubs, subs, topics, etc. Inspired by Google's [pub/sub APIs](https://docs.cloud.google.com/pubsub/docs/reference/rest?rep_location=global)
 - Creating a visual interface using react, where you can visually create new pubs/subs in React or something, and then make API calls to update the structure of the Pub/Sub accordingly 
+- Some more advanced features
+  - At least once delivery
+  - offset tracking
+  - consumer acknowledgement
+  - Write ahead queue
+- Super advanced features way down the line
+  - Saga coordination on top
+    - Saga registry
+    - correlation based ID routing
+    - timeout handling 
+    - compensation transaction support
