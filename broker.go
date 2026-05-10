@@ -8,37 +8,38 @@ import (
 )
 
 type Broker struct {
-	mu   sync.RWMutex
-	name string
+	mu          sync.RWMutex
+	name        string
+	subscribers map[string][]net.Conn
 }
 
-// var subscribers map[string][]*net.Conn
+func newBroker(name string) *Broker {
+	return &Broker{
+		name:        name,
+		subscribers: make(map[string][]net.Conn),
+	}
+}
 
-var subscribers = make(map[string][]net.Conn)
-
-func (b Broker) initializeBroker() {
-
-	// Listen for incoming connections on port 8080
+func (b *Broker) initializeBroker() {
 	ln, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	b.serve(ln)
+}
 
-	// Accept incoming connections and handle them
+func (b *Broker) serve(ln net.Listener) {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			fmt.Println(err)
-			continue
+			return
 		}
-
-		// Handle the connection in a new goroutine
-		go handleMessage(conn, &b.mu)
+		go b.handleMessage(conn)
 	}
 }
 
-func handleMessage(conn net.Conn, mu *sync.RWMutex) {
+func (b *Broker) handleMessage(conn net.Conn) {
 	buf := make([]byte, 1024)
 
 	for {
@@ -60,21 +61,21 @@ func handleMessage(conn net.Conn, mu *sync.RWMutex) {
 		case "SUBSCRIBE":
 			fmt.Println("subscribe:", msg.Topic)
 
-			mu.Lock()
-			subscribers[msg.Topic] = append(subscribers[msg.Topic], conn)
-			mu.Unlock()
+			b.mu.Lock()
+			b.subscribers[msg.Topic] = append(b.subscribers[msg.Topic], conn)
+			b.mu.Unlock()
 
 		case "PUBLISH":
 			fmt.Println("publish:", msg.Text)
 
-			mu.RLock()
-			for _, c := range subscribers[msg.Topic] {
+			b.mu.RLock()
+			for _, c := range b.subscribers[msg.Topic] {
 				_, err := c.Write([]byte(msg.Text))
 				if err != nil {
 					fmt.Println("write error:", err)
 				}
 			}
-			mu.RUnlock()
+			b.mu.RUnlock()
 		}
 	}
 }

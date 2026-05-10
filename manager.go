@@ -14,7 +14,7 @@ var pubs []Publisher
 
 func main() {
 	wg := sync.WaitGroup{}
-	b1 := Broker{name: "broker"}
+	b1 := newBroker("broker")
 	wg.Go(func() { b1.initializeBroker() })
 
 	reader := bufio.NewReader(os.Stdin)
