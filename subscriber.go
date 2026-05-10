@@ -50,6 +50,8 @@ func (s *Subscriber) subscribeToTopic(topic string) {
 		return
 	}
 
+	//really dumb way to do this because it doesn't account for a failure to subscribe to a topic if the broker's down. Also needlessly complicated.
+	//use one shared structure to keep track of everything
 	s.topics = append(s.topics, topic)
 
 	msg := Message{
