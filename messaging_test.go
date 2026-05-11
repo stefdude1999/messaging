@@ -1,5 +1,7 @@
 package main
 
+// AI Generated
+
 import (
 	"encoding/json"
 	"net"
@@ -105,7 +107,7 @@ const settle = 20 * time.Millisecond
 // ---- findSub ----
 
 func TestFindSub_Found(t *testing.T) {
-	subs := []Subscriber{{Name:"alpha"}, {Name:"beta"}}
+	subs := []Subscriber{{Name: "alpha"}, {Name: "beta"}}
 	got := findSub(subs, "beta")
 	if got == nil || got.Name != "beta" {
 		t.Fatalf("expected beta, got %v", got)
@@ -113,7 +115,7 @@ func TestFindSub_Found(t *testing.T) {
 }
 
 func TestFindSub_ReturnsPointerIntoSlice(t *testing.T) {
-	subs := []Subscriber{{Name:"alpha"}}
+	subs := []Subscriber{{Name: "alpha"}}
 	got := findSub(subs, "alpha")
 	if got != &subs[0] {
 		t.Fatal("expected pointer into original slice")
@@ -121,7 +123,7 @@ func TestFindSub_ReturnsPointerIntoSlice(t *testing.T) {
 }
 
 func TestFindSub_NotFound(t *testing.T) {
-	subs := []Subscriber{{Name:"alpha"}}
+	subs := []Subscriber{{Name: "alpha"}}
 	if got := findSub(subs, "missing"); got != nil {
 		t.Fatalf("expected nil, got %v", got)
 	}
@@ -136,7 +138,7 @@ func TestFindSub_EmptySlice(t *testing.T) {
 // ---- findPub ----
 
 func TestFindPub_Found(t *testing.T) {
-	pubs := []Publisher{{Name:"p1"}, {Name:"p2"}}
+	pubs := []Publisher{{Name: "p1"}, {Name: "p2"}}
 	got := findPub(pubs, "p2")
 	if got == nil || got.Name != "p2" {
 		t.Fatalf("expected p2, got %v", got)
@@ -144,7 +146,7 @@ func TestFindPub_Found(t *testing.T) {
 }
 
 func TestFindPub_ReturnsPointerIntoSlice(t *testing.T) {
-	pubs := []Publisher{{Name:"p1"}}
+	pubs := []Publisher{{Name: "p1"}}
 	got := findPub(pubs, "p1")
 	if got != &pubs[0] {
 		t.Fatal("expected pointer into original slice")
@@ -152,7 +154,7 @@ func TestFindPub_ReturnsPointerIntoSlice(t *testing.T) {
 }
 
 func TestFindPub_NotFound(t *testing.T) {
-	pubs := []Publisher{{Name:"p1"}}
+	pubs := []Publisher{{Name: "p1"}}
 	if got := findPub(pubs, "missing"); got != nil {
 		t.Fatalf("expected nil, got %v", got)
 	}
