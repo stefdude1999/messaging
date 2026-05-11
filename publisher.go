@@ -34,5 +34,5 @@ func (p Publisher) publishToTopic(topic string, message string) {
 }
 
 type Publisher struct {
-	name string
+	Name string `json:"name"`
 }

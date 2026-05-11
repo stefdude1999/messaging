@@ -15,7 +15,7 @@ type Message struct {
 }
 
 type Subscriber struct {
-	name   string
+	Name   string `json:"name"`
 	topics []string
 	conns  map[string]net.Conn
 }
@@ -78,6 +78,6 @@ func (s *Subscriber) subscribeToTopic(topic string) {
 		}
 
 		msg := string(buf[:n])
-		fmt.Println("received:", msg, " by subscriber: ", s.name)
+		fmt.Println("received:", msg, " by subscriber: ", s.Name)
 	}
 }

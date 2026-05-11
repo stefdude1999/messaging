@@ -1,14 +1,30 @@
 package main
 
-// this was AI generated
-
 import (
 	"encoding/json"
 	"net"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
+
+// TestMain starts a broker on :8080 for API integration tests.
+// All existing broker/unit tests use random ports and are unaffected.
+func TestMain(m *testing.M) {
+	ln, err := net.Listen("tcp", ":8080")
+	if err == nil {
+		apiTestBroker = newBroker("api-test")
+		go apiTestBroker.serve(ln)
+		defer ln.Close()
+	}
+	os.Exit(m.Run())
+}
 
 // ---- test helpers ----
 
@@ -89,15 +105,15 @@ const settle = 20 * time.Millisecond
 // ---- findSub ----
 
 func TestFindSub_Found(t *testing.T) {
-	subs := []Subscriber{{name: "alpha"}, {name: "beta"}}
+	subs := []Subscriber{{Name:"alpha"}, {Name:"beta"}}
 	got := findSub(subs, "beta")
-	if got == nil || got.name != "beta" {
+	if got == nil || got.Name != "beta" {
 		t.Fatalf("expected beta, got %v", got)
 	}
 }
 
 func TestFindSub_ReturnsPointerIntoSlice(t *testing.T) {
-	subs := []Subscriber{{name: "alpha"}}
+	subs := []Subscriber{{Name:"alpha"}}
 	got := findSub(subs, "alpha")
 	if got != &subs[0] {
 		t.Fatal("expected pointer into original slice")
@@ -105,7 +121,7 @@ func TestFindSub_ReturnsPointerIntoSlice(t *testing.T) {
 }
 
 func TestFindSub_NotFound(t *testing.T) {
-	subs := []Subscriber{{name: "alpha"}}
+	subs := []Subscriber{{Name:"alpha"}}
 	if got := findSub(subs, "missing"); got != nil {
 		t.Fatalf("expected nil, got %v", got)
 	}
@@ -120,15 +136,15 @@ func TestFindSub_EmptySlice(t *testing.T) {
 // ---- findPub ----
 
 func TestFindPub_Found(t *testing.T) {
-	pubs := []Publisher{{name: "p1"}, {name: "p2"}}
+	pubs := []Publisher{{Name:"p1"}, {Name:"p2"}}
 	got := findPub(pubs, "p2")
-	if got == nil || got.name != "p2" {
+	if got == nil || got.Name != "p2" {
 		t.Fatalf("expected p2, got %v", got)
 	}
 }
 
 func TestFindPub_ReturnsPointerIntoSlice(t *testing.T) {
-	pubs := []Publisher{{name: "p1"}}
+	pubs := []Publisher{{Name:"p1"}}
 	got := findPub(pubs, "p1")
 	if got != &pubs[0] {
 		t.Fatal("expected pointer into original slice")
@@ -136,7 +152,7 @@ func TestFindPub_ReturnsPointerIntoSlice(t *testing.T) {
 }
 
 func TestFindPub_NotFound(t *testing.T) {
-	pubs := []Publisher{{name: "p1"}}
+	pubs := []Publisher{{Name:"p1"}}
 	if got := findPub(pubs, "missing"); got != nil {
 		t.Fatalf("expected nil, got %v", got)
 	}
@@ -513,4 +529,346 @@ func TestIntegration_ConcurrentSubscribeAndPublish(t *testing.T) {
 	}
 	wg.Wait()
 	time.Sleep(50 * time.Millisecond)
+}
+
+// ---- API test infrastructure ----
+
+// apiTestBroker is started on :8080 by TestMain for API integration tests.
+var apiTestBroker *Broker
+
+// setupAPITest resets global pub/sub state and returns a fresh Gin router
+// wired up with all API handlers.
+func setupAPITest(t *testing.T) *gin.Engine {
+	t.Helper()
+	subs = nil
+	pubs = nil
+	t.Cleanup(func() {
+		subs = nil
+		pubs = nil
+	})
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.POST("/publisher", postPublisher)
+	r.POST("/subscriber", postSubscriber)
+	r.POST("/topic", postTopic)
+	r.POST("/publish", postPublish)
+	r.PUT("/unsubscribe", updateUnsubscribe)
+	r.GET("/state", getState)
+	return r
+}
+
+// apiReq fires an HTTP request through the router and returns the recorder.
+func apiReq(t *testing.T, r *gin.Engine, method, path, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(method, path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	return w
+}
+
+// requireAPIBroker skips the test if the shared broker on :8080 is unavailable.
+func requireAPIBroker(t *testing.T) {
+	t.Helper()
+	if apiTestBroker == nil {
+		t.Skip("port 8080 unavailable; skipping API integration test")
+	}
+}
+
+// ---- API unit tests (no broker required) ----
+
+func TestAPI_CreatePublisher(t *testing.T) {
+	r := setupAPITest(t)
+	w := apiReq(t, r, "POST", "/publisher", `{"name":"pub1"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if len(pubs) != 1 || pubs[0].Name != "pub1" {
+		t.Fatalf("expected pubs=[pub1], got %v", pubs)
+	}
+}
+
+func TestAPI_CreateSubscriber(t *testing.T) {
+	r := setupAPITest(t)
+	w := apiReq(t, r, "POST", "/subscriber", `{"name":"sub1"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if len(subs) != 1 || subs[0].Name != "sub1" {
+		t.Fatalf("expected subs=[sub1], got %v", subs)
+	}
+}
+
+func TestAPI_Subscribe_UnknownSubscriber_Returns404(t *testing.T) {
+	r := setupAPITest(t)
+	w := apiReq(t, r, "POST", "/topic", `{"name":"orders","subscriber":"nobody"}`)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", w.Code)
+	}
+}
+
+func TestAPI_Publish_UnknownPublisher_Returns404(t *testing.T) {
+	r := setupAPITest(t)
+	w := apiReq(t, r, "POST", "/publish", `{"name":"ghost","topic":"orders","message":"hi"}`)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", w.Code)
+	}
+}
+
+func TestAPI_Unsubscribe_UnknownSubscriber_Returns404(t *testing.T) {
+	r := setupAPITest(t)
+	w := apiReq(t, r, "PUT", "/unsubscribe", `{"name":"orders","subscriber":"nobody"}`)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", w.Code)
+	}
+}
+
+func TestAPI_BadJSON_Publisher_Returns400(t *testing.T) {
+	r := setupAPITest(t)
+	w := apiReq(t, r, "POST", "/publisher", `not json`)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestAPI_BadJSON_Subscriber_Returns400(t *testing.T) {
+	r := setupAPITest(t)
+	w := apiReq(t, r, "POST", "/subscriber", `not json`)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
+// ---- GET /state unit tests (no broker required) ----
+
+func TestAPI_GetState_Empty(t *testing.T) {
+	r := setupAPITest(t)
+	w := apiReq(t, r, "GET", "/state", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var state stateView
+	if err := json.Unmarshal(w.Body.Bytes(), &state); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if len(state.Publishers) != 0 {
+		t.Fatalf("expected no publishers, got %v", state.Publishers)
+	}
+	if len(state.Subscribers) != 0 {
+		t.Fatalf("expected no subscribers, got %v", state.Subscribers)
+	}
+}
+
+func TestAPI_GetState_PublishersOnly(t *testing.T) {
+	r := setupAPITest(t)
+	pubs = []Publisher{{Name: "pub1"}, {Name: "pub2"}}
+
+	w := apiReq(t, r, "GET", "/state", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var state stateView
+	if err := json.Unmarshal(w.Body.Bytes(), &state); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if len(state.Publishers) != 2 || state.Publishers[0] != "pub1" || state.Publishers[1] != "pub2" {
+		t.Fatalf("unexpected publishers: %v", state.Publishers)
+	}
+	if len(state.Subscribers) != 0 {
+		t.Fatalf("expected no subscribers, got %v", state.Subscribers)
+	}
+}
+
+func TestAPI_GetState_SubscriberWithNoTopics(t *testing.T) {
+	r := setupAPITest(t)
+	subs = []Subscriber{{Name: "idle-sub"}}
+
+	w := apiReq(t, r, "GET", "/state", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var state stateView
+	if err := json.Unmarshal(w.Body.Bytes(), &state); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if len(state.Subscribers) != 1 {
+		t.Fatalf("expected 1 subscriber, got %d", len(state.Subscribers))
+	}
+	if state.Subscribers[0].Name != "idle-sub" {
+		t.Fatalf("unexpected subscriber name: %q", state.Subscribers[0].Name)
+	}
+	if len(state.Subscribers[0].Topics) != 0 {
+		t.Fatalf("expected empty topics, got %v", state.Subscribers[0].Topics)
+	}
+}
+
+func TestAPI_GetState_SubscribersWithTopics(t *testing.T) {
+	r := setupAPITest(t)
+	subs = []Subscriber{
+		{Name: "analytics-sub", topics: []string{"orders", "payments"}},
+		{Name: "logging-sub", topics: []string{"orders"}},
+	}
+
+	w := apiReq(t, r, "GET", "/state", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var state stateView
+	if err := json.Unmarshal(w.Body.Bytes(), &state); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if len(state.Subscribers) != 2 {
+		t.Fatalf("expected 2 subscribers, got %d", len(state.Subscribers))
+	}
+
+	a := state.Subscribers[0]
+	if a.Name != "analytics-sub" || len(a.Topics) != 2 || a.Topics[0] != "orders" || a.Topics[1] != "payments" {
+		t.Fatalf("unexpected analytics-sub state: %+v", a)
+	}
+	l := state.Subscribers[1]
+	if l.Name != "logging-sub" || len(l.Topics) != 1 || l.Topics[0] != "orders" {
+		t.Fatalf("unexpected logging-sub state: %+v", l)
+	}
+}
+
+func TestAPI_GetState_Full(t *testing.T) {
+	r := setupAPITest(t)
+	pubs = []Publisher{{Name: "orders-publisher"}, {Name: "payments-publisher"}}
+	subs = []Subscriber{
+		{Name: "analytics-sub", topics: []string{"orders", "payments"}},
+		{Name: "logging-sub", topics: []string{"orders"}},
+		{Name: "idle-sub"},
+	}
+
+	w := apiReq(t, r, "GET", "/state", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var state stateView
+	if err := json.Unmarshal(w.Body.Bytes(), &state); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if len(state.Publishers) != 2 {
+		t.Fatalf("expected 2 publishers, got %d", len(state.Publishers))
+	}
+	if len(state.Subscribers) != 3 {
+		t.Fatalf("expected 3 subscribers, got %d", len(state.Subscribers))
+	}
+	if len(state.Subscribers[2].Topics) != 0 {
+		t.Fatalf("idle-sub should have no topics, got %v", state.Subscribers[2].Topics)
+	}
+}
+
+// ---- API integration tests (require broker on :8080) ----
+
+func TestAPI_Subscribe_RegistersWithBroker(t *testing.T) {
+	requireAPIBroker(t)
+	r := setupAPITest(t)
+
+	apiReq(t, r, "POST", "/subscriber", `{"name":"sub1"}`)
+	w := apiReq(t, r, "POST", "/topic", `{"name":"reg-topic","subscriber":"sub1"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	time.Sleep(settle)
+
+	apiTestBroker.mu.RLock()
+	n := len(apiTestBroker.subscribers["reg-topic"])
+	apiTestBroker.mu.RUnlock()
+	if n != 1 {
+		t.Fatalf("expected 1 subscriber for 'reg-topic', got %d", n)
+	}
+}
+
+func TestAPI_Publish_DeliversMessage(t *testing.T) {
+	requireAPIBroker(t)
+	r := setupAPITest(t)
+
+	apiReq(t, r, "POST", "/publisher", `{"name":"pub1"}`)
+	apiReq(t, r, "POST", "/subscriber", `{"name":"sub1"}`)
+	apiReq(t, r, "POST", "/topic", `{"name":"delivery-topic","subscriber":"sub1"}`)
+	time.Sleep(settle)
+
+	// Open a monitor directly on the broker to capture the published message.
+	monitor := sendSubscribe(t, "localhost:8080", "delivery-topic")
+	defer monitor.Close()
+	time.Sleep(settle)
+
+	w := apiReq(t, r, "POST", "/publish", `{"name":"pub1","topic":"delivery-topic","message":"hello-api"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	got := readWithTimeout(t, monitor, time.Second)
+	if got != "hello-api" {
+		t.Fatalf("expected 'hello-api', got %q", got)
+	}
+}
+
+func TestAPI_Unsubscribe_RemovesFromBroker(t *testing.T) {
+	requireAPIBroker(t)
+	r := setupAPITest(t)
+
+	apiReq(t, r, "POST", "/subscriber", `{"name":"sub1"}`)
+	apiReq(t, r, "POST", "/topic", `{"name":"unsub-topic","subscriber":"sub1"}`)
+	time.Sleep(settle)
+
+	apiTestBroker.mu.RLock()
+	before := len(apiTestBroker.subscribers["unsub-topic"])
+	apiTestBroker.mu.RUnlock()
+
+	w := apiReq(t, r, "PUT", "/unsubscribe", `{"name":"unsub-topic","subscriber":"sub1"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	time.Sleep(settle)
+
+	apiTestBroker.mu.RLock()
+	after := len(apiTestBroker.subscribers["unsub-topic"])
+	apiTestBroker.mu.RUnlock()
+
+	if before != 1 {
+		t.Fatalf("expected 1 subscriber before unsubscribe, got %d", before)
+	}
+	if after != 0 {
+		t.Fatalf("expected 0 subscribers after unsubscribe, got %d", after)
+	}
+}
+
+func TestAPI_GetState_ReflectsSubscriptions(t *testing.T) {
+	requireAPIBroker(t)
+	r := setupAPITest(t)
+
+	apiReq(t, r, "POST", "/publisher", `{"name":"pub1"}`)
+	apiReq(t, r, "POST", "/subscriber", `{"name":"sub1"}`)
+	apiReq(t, r, "POST", "/subscriber", `{"name":"sub2"}`)
+	apiReq(t, r, "POST", "/topic", `{"name":"orders","subscriber":"sub1"}`)
+	apiReq(t, r, "POST", "/topic", `{"name":"payments","subscriber":"sub1"}`)
+	apiReq(t, r, "POST", "/topic", `{"name":"orders","subscriber":"sub2"}`)
+	time.Sleep(settle)
+
+	w := apiReq(t, r, "GET", "/state", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var state stateView
+	if err := json.Unmarshal(w.Body.Bytes(), &state); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+
+	if len(state.Publishers) != 1 || state.Publishers[0] != "pub1" {
+		t.Fatalf("unexpected publishers: %v", state.Publishers)
+	}
+	if len(state.Subscribers) != 2 {
+		t.Fatalf("expected 2 subscribers, got %d", len(state.Subscribers))
+	}
+
+	sub1 := state.Subscribers[0]
+	if sub1.Name != "sub1" || len(sub1.Topics) != 2 {
+		t.Fatalf("unexpected sub1 state: %+v", sub1)
+	}
+	sub2 := state.Subscribers[1]
+	if sub2.Name != "sub2" || len(sub2.Topics) != 1 || sub2.Topics[0] != "orders" {
+		t.Fatalf("unexpected sub2 state: %+v", sub2)
+	}
 }

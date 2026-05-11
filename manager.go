@@ -1,165 +1,151 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
-	"os"
-	"strings"
-	"sync"
-	"time"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 var subs []Subscriber
 var pubs []Publisher
 
+// POST a subscriber, topic, and subscriber
+// GET overall structure
+// UPDATE unsubscribe
+
+type topic struct {
+	Name       string `json:"name"`
+	Subscriber string `json:"subscriber"`
+}
+
+type publish struct {
+	Name    string `json:"name"`
+	Topic   string `json:"topic"`
+	Message string `json:"message"`
+}
+
+type subscriberView struct {
+	Name   string   `json:"name"`
+	Topics []string `json:"topics"`
+}
+
+type stateView struct {
+	Publishers  []string         `json:"publishers"`
+	Subscribers []subscriberView `json:"subscribers"`
+}
+
 func main() {
-	wg := sync.WaitGroup{}
+	//	wg := sync.WaitGroup{}
 	b1 := newBroker("broker")
-	wg.Go(func() { b1.initializeBroker() })
+	go b1.initializeBroker()
+	router := gin.Default()
 
-	reader := bufio.NewReader(os.Stdin)
+	router.POST("/publisher", postPublisher)
+	router.POST("/subscriber", postSubscriber)
+	router.POST("/topic", postTopic)
+	router.POST("/publish", postPublish)
+	router.PUT("/unsubscribe", updateUnsubscribe)
+	router.GET("/state", getState)
 
-	for {
-		fmt.Print("Enter 1 to create a new subscriber, enter 2 to create a new publisher, 3 to assign a topic to a subscriber, 4 to publish to a topic, 5 to unsubscribe from a topic, 6 to print out everything, enter 7 to exit: ")
-		input, err := reader.ReadString('\n')
+	router.Run("localhost:9001")
+	//wg.Wait()
+}
 
-		if err != nil {
-			// Handle any read errors (e.g., EOF)
-			fmt.Printf("Error reading input: %v\n", err)
-			break
-		}
+func postPublisher(c *gin.Context) {
+	var publisher Publisher
 
-		// Trim whitespace and split into command parts
-		input = strings.TrimSpace(input)
-
-		switch input {
-		case "":
-			continue
-		case "1":
-			fmt.Println("enter the name of the new subscriber: ")
-			subscriber_name, err := reader.ReadString('\n')
-			if err != nil {
-				// Handle any read errors (e.g., EOF)
-				fmt.Printf("Error reading input: %v\n", err)
-				break
-			}
-			subs = append(subs, Subscriber{
-				name: subscriber_name,
-			})
-		case "2":
-			fmt.Println("enter the name of the new publisher: ")
-			publisher_name, err := reader.ReadString('\n')
-			if err != nil {
-				// Handle any read errors (e.g., EOF)
-				fmt.Printf("Error reading input: %v\n", err)
-				break
-			}
-			pubs = append(pubs, Publisher{
-				name: publisher_name,
-			})
-		case "3":
-			fmt.Println("enter the name of the subscriber you're looking for: ")
-			subscriber_name, err := reader.ReadString('\n')
-			if err != nil {
-				// Handle any read errors (e.g., EOF)
-				fmt.Printf("Error reading input: %v\n", err)
-				break
-			}
-
-			to_find := findSub(subs, subscriber_name)
-			if to_find != nil {
-				println("Found subscriber. Now please enter topic name you'd like to assign this subscriber to: ")
-				topic_name, err := reader.ReadString('\n')
-				if err != nil {
-					// Handle any read errors (e.g., EOF)
-					fmt.Printf("Error reading input: %v\n", err)
-					break
-				}
-				wg.Go(func() { to_find.subscribeToTopic(topic_name) })
-			} else {
-				println("was not able to find that subscriber: ")
-			}
-		case "4":
-			fmt.Println("enter the name of the publisher you're looking for: ")
-			publisher_name, err := reader.ReadString('\n')
-			if err != nil {
-				// Handle any read errors (e.g., EOF)
-				fmt.Printf("Error reading input: %v\n", err)
-				break
-			}
-
-			to_find := findPub(pubs, publisher_name)
-			if to_find != nil {
-				println("Found subscriber. Now please enter topic name you'd like to publish to: ")
-				topic_name, err := reader.ReadString('\n')
-				if err != nil {
-					// Handle any read errors (e.g., EOF)
-					fmt.Printf("Error reading input: %v\n", err)
-					break
-				}
-				println("Now enter message: ")
-				message_value, err := reader.ReadString('\n')
-				if err != nil {
-					// Handle any read errors (e.g., EOF)
-					fmt.Printf("Error reading input: %v\n", err)
-					break
-				}
-				wg.Go(func() { to_find.publishToTopic(topic_name, message_value) })
-			} else {
-				println("was not able to find that publish: ")
-			}
-		case "5":
-			fmt.Println("enter the name of the subscriber you're looking for: ")
-			subscriber_name, err := reader.ReadString('\n')
-			if err != nil {
-				// Handle any read errors (e.g., EOF)
-				fmt.Printf("Error reading input: %v\n", err)
-				break
-			}
-
-			to_find := findSub(subs, subscriber_name)
-			if to_find != nil {
-				println("Found subscriber. Now please enter topic name you'd like to unsubscribe from: ")
-				topic_name, err := reader.ReadString('\n')
-				if err != nil {
-					// Handle any read errors (e.g., EOF)
-					fmt.Printf("Error reading input: %v\n", err)
-					break
-				}
-				wg.Go(func() { to_find.unsubscribeFromTopic(topic_name) })
-			} else {
-				println("was not able to find that subscriber: ")
-			}
-		case "6":
-			println("List of publishers: ")
-			for i := range pubs {
-				print(pubs[i].name)
-			}
-
-			println("List of subscribers and topics: ")
-			for i := range subs {
-				print(subs[i].name)
-				for j := range subs[i].topics {
-					print(" - ", subs[i].topics[j])
-				}
-			}
-		case "7":
-			return
-		default:
-			println("please enter a proper value")
-			continue
-		}
-
-		// maybe not the best idea, but wait for all messages to be sent/received before prompting the user again. Doesn't have any functional reason but looks nicer in the console
-		time.Sleep(1 * time.Second)
-
+	if err := c.BindJSON(&publisher); err != nil {
+		return
 	}
-	wg.Wait()
+
+	pubs = append(pubs, publisher)
+}
+
+func postSubscriber(c *gin.Context) {
+	var subscriber Subscriber
+
+	if err := c.BindJSON(&subscriber); err != nil {
+		return
+	}
+
+	subs = append(subs, subscriber)
+}
+
+func postTopic(c *gin.Context) {
+	var newTopic topic
+
+	// Call BindJSON to bind the received JSON to
+	// newAlbum.
+	if err := c.BindJSON(&newTopic); err != nil {
+		return
+	}
+	to_find := findSub(subs, newTopic.Subscriber)
+	if to_find != nil {
+		go to_find.subscribeToTopic(newTopic.Name)
+	} else {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "could not find subscriber"})
+	}
+}
+
+func updateUnsubscribe(c *gin.Context) {
+	var newUnsubscribe topic
+
+	if err := c.BindJSON(&newUnsubscribe); err != nil {
+		return
+	}
+
+	to_find := findSub(subs, newUnsubscribe.Subscriber)
+	if to_find != nil {
+		go to_find.unsubscribeFromTopic(newUnsubscribe.Name)
+	} else {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "could not find subscriber"})
+	}
+}
+
+func postPublish(c *gin.Context) {
+	var newPublish publish
+
+	// Call BindJSON to bind the received JSON to
+	// newAlbum.
+	if err := c.BindJSON(&newPublish); err != nil {
+		return
+	}
+	to_find := findPub(pubs, newPublish.Name)
+	if to_find != nil {
+
+		go to_find.publishToTopic(newPublish.Topic, newPublish.Message)
+	} else {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "could not find publisher"})
+	}
+}
+
+func getState(c *gin.Context) {
+	state := stateView{
+		Publishers:  make([]string, 0, len(pubs)),
+		Subscribers: make([]subscriberView, 0, len(subs)),
+	}
+
+	for _, p := range pubs {
+		state.Publishers = append(state.Publishers, p.Name)
+	}
+
+	for _, s := range subs {
+		topics := s.topics
+		if topics == nil {
+			topics = []string{}
+		}
+		state.Subscribers = append(state.Subscribers, subscriberView{
+			Name:   s.Name,
+			Topics: topics,
+		})
+	}
+
+	c.IndentedJSON(http.StatusOK, state)
 }
 
 func findSub(subs []Subscriber, sub_name string) *Subscriber {
 	for i := range subs {
-		if subs[i].name == sub_name {
+		if subs[i].Name == sub_name {
 			return &subs[i]
 		}
 	}
@@ -168,7 +154,7 @@ func findSub(subs []Subscriber, sub_name string) *Subscriber {
 
 func findPub(pubs []Publisher, pub_name string) *Publisher {
 	for i := range pubs {
-		if pubs[i].name == pub_name {
+		if pubs[i].Name == pub_name {
 			return &pubs[i]
 		}
 	}
