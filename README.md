@@ -40,13 +40,20 @@ echo '{"CN":"localhost","hosts":["localhost","127.0.0.1"],"key":{"algo":"rsa","s
 cfssl gencert -ca=ca.pem -ca-key=ca-key.pem server-csr.json | cfssljson -bare cert/server
 ```
 
-### 3. Trust the CA (macOS)
+### 3. Trust the CA on macOS
 
 ```bash
 sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ca.pem
 ```
 
 Restart your browser after running this.
+
+### 3. Alternatively, on Linux
+
+```bash
+sudo cp ca.pem /etc/ca-certificates/trust-source/anchors/
+sudo trust extract-compat
+```
 
 ### 4. Run
 
