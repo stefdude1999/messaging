@@ -60,6 +60,8 @@ The API is available at https://localhost:9001/swagger/index.html
 
 If you want to use curl, here's some sample curl commands
 
+### Using Curl
+
 Create a publisher:
 
 ```base
