@@ -6,7 +6,7 @@ Simple pub sub service. Allows the creation of arbitrary publishers and subscrib
 
 ## How to run
 
-Clone the repo, then follow the steps below.
+The steps below are if you want to set up the repo using SSL and swagger. If you don't want to use swagger, skip to the section below for directly using curl. 
 
 ### 1. Install cfssl
 
@@ -58,6 +58,80 @@ To test, run `go test -race`
 
 The API is available at https://localhost:9001/swagger/index.html
 
+If you want to use curl, here's some sample curl commands
+
+Create a publisher:
+
+```base
+curl -X 'POST' \
+  'https://localhost:9001/api/v1/messaging/publisher' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "name": "pub1"
+}'
+```
+
+Create a subscriber:
+
+```base
+curl -X 'POST' \
+  'https://localhost:9001/api/v1/messaging/subscriber' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "name": "sub1"
+}'
+```
+
+Create a topic:
+
+```base
+curl -X 'POST' \
+  'https://localhost:9001/api/v1/messaging/topic' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "name": "topic1",
+  "subscriber": "sub1"
+}'
+```
+
+Get the state:
+
+```base
+curl -X 'GET' \
+  'https://localhost:9001/api/v1/messaging/state' \
+  -H 'accept: application/json'
+```
+
+Publish a message:
+
+```base
+curl -X 'POST' \
+  'https://localhost:9001/api/v1/messaging/publish' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "message": "test",
+  "name": "pub1",
+  "topic": "topic1"
+}'
+```
+
+Unsubscribe from topic:
+
+```base
+curl -X 'PUT' \
+  'https://localhost:9001/api/v1/messaging/unsubscribe' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "name": "topic1",
+  "subscriber": "sub1"
+}'
+```
+
 ## What's Next, In Order I'd Like To Make The Changes
 
 - ~~Take a subscriber with a list of topics, and unsubscribe from any topic~~
@@ -67,6 +141,7 @@ The API is available at https://localhost:9001/swagger/index.html
 - Creating a visual interface using React, where you can visually create new pubs/subs, and then make API calls to update the structure of the Pub/Sub accordingly
 - ~Add a "swagger" equivalent to the API~
 - Dockerize everything
+- Remove ability to create duplicate resources (enforce name uniqueness)
 
 ### Advanced Features
 
