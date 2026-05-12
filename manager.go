@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 )
@@ -34,6 +35,8 @@ type stateView struct {
 	Subscribers []subscriberView `json:"subscribers"`
 }
 
+var globalmu sync.RWMutex
+
 func main() {
 	//	wg := sync.WaitGroup{}
 	b1 := newBroker("broker")
@@ -58,7 +61,9 @@ func postPublisher(c *gin.Context) {
 		return
 	}
 
+	globalmu.Lock()
 	pubs = append(pubs, publisher)
+	globalmu.Unlock()
 }
 
 func postSubscriber(c *gin.Context) {
@@ -68,7 +73,9 @@ func postSubscriber(c *gin.Context) {
 		return
 	}
 
+	globalmu.Lock()
 	subs = append(subs, subscriber)
+	globalmu.Unlock()
 }
 
 func postTopic(c *gin.Context) {
@@ -79,12 +86,14 @@ func postTopic(c *gin.Context) {
 	if err := c.BindJSON(&newTopic); err != nil {
 		return
 	}
+	globalmu.RLock()
 	to_find := findSub(subs, newTopic.Subscriber)
 	if to_find != nil {
 		go to_find.subscribeToTopic(newTopic.Name)
 	} else {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "could not find subscriber"})
 	}
+	globalmu.RUnlock()
 }
 
 func updateUnsubscribe(c *gin.Context) {
@@ -94,12 +103,14 @@ func updateUnsubscribe(c *gin.Context) {
 		return
 	}
 
+	globalmu.RLock()
 	to_find := findSub(subs, newUnsubscribe.Subscriber)
 	if to_find != nil {
 		go to_find.unsubscribeFromTopic(newUnsubscribe.Name)
 	} else {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "could not find subscriber"})
 	}
+	globalmu.RUnlock()
 }
 
 func postPublish(c *gin.Context) {
@@ -110,6 +121,7 @@ func postPublish(c *gin.Context) {
 	if err := c.BindJSON(&newPublish); err != nil {
 		return
 	}
+	globalmu.RLock()
 	to_find := findPub(pubs, newPublish.Name)
 	if to_find != nil {
 
@@ -117,6 +129,7 @@ func postPublish(c *gin.Context) {
 	} else {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "could not find publisher"})
 	}
+	globalmu.RUnlock()
 }
 
 func getState(c *gin.Context) {
@@ -125,20 +138,22 @@ func getState(c *gin.Context) {
 		Subscribers: make([]subscriberView, 0, len(subs)),
 	}
 
+	globalmu.RLock()
 	for _, p := range pubs {
 		state.Publishers = append(state.Publishers, p.Name)
 	}
 
-	for _, s := range subs {
-		topics := s.topics
+	for i := range subs {
+		subs[i].mu.RLock()
+		topics := subs[i].topics
 		if topics == nil {
 			topics = []string{}
 		}
-		state.Subscribers = append(state.Subscribers, subscriberView{
-			Name:   s.Name,
-			Topics: topics,
-		})
+		view := subscriberView{Name: subs[i].Name, Topics: topics}
+		subs[i].mu.RUnlock()
+		state.Subscribers = append(state.Subscribers, view)
 	}
+	globalmu.RUnlock()
 
 	c.IndentedJSON(http.StatusOK, state)
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (p Publisher) publishToTopic(topic string, message string) {
+func (p *Publisher) publishToTopic(topic string, message string) {
 	// Connect to the server
 	conn, err := net.Dial("tcp", "localhost:8080")
 	if err != nil {

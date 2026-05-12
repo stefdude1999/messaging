@@ -100,9 +100,51 @@ func readTimesOut(conn net.Conn, timeout time.Duration) bool {
 	return false
 }
 
-// small pause after subscribe so the broker goroutine has time to register
-// the connection before a publish lands.
-const settle = 20 * time.Millisecond
+// waitForActiveConns polls until b has exactly n active handleMessage goroutines,
+// or fails after 1s. Use this to wait for short-lived (publish) connections to
+// finish processing before taking the next action.
+func waitForActiveConns(t *testing.T, b *Broker, n int) {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		if int(b.activeConns.Load()) == n {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %d active connection(s)", n)
+}
+
+// waitForSubs polls until b has exactly n subscribers for topic, or fails after 1s.
+func waitForSubs(t *testing.T, b *Broker, topic string, n int) {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		b.mu.RLock()
+		count := len(b.subscribers[topic])
+		b.mu.RUnlock()
+		if count == n {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %d subscriber(s) on topic %q", n, topic)
+}
+
+// pipeSubscribe wires up a net.Pipe, starts handleMessage on the server side,
+// and sends a SUBSCRIBE message. Returns both ends.
+func pipeSubscribe(t *testing.T, b *Broker, topic string) (server, client net.Conn) {
+	t.Helper()
+	server, client = net.Pipe()
+	go b.handleMessage(server)
+	msg := Message{Command: "SUBSCRIBE", Topic: topic}
+	data, _ := json.Marshal(msg)
+	if _, err := client.Write(data); err != nil {
+		t.Fatalf("pipeSubscribe write: %v", err)
+	}
+	waitForSubs(t, b, topic, 1)
+	return server, client
+}
 
 // ---- findSub ----
 
@@ -168,21 +210,6 @@ func TestFindPub_EmptySlice(t *testing.T) {
 
 // ---- handleMessage unit tests (net.Pipe — no real network) ----
 
-// pipeSubscribe wires up a net.Pipe, starts handleMessage on the server side,
-// and sends a SUBSCRIBE message. Returns both ends.
-func pipeSubscribe(t *testing.T, b *Broker, topic string) (server, client net.Conn) {
-	t.Helper()
-	server, client = net.Pipe()
-	go b.handleMessage(server)
-	msg := Message{Command: "SUBSCRIBE", Topic: topic}
-	data, _ := json.Marshal(msg)
-	if _, err := client.Write(data); err != nil {
-		t.Fatalf("pipeSubscribe write: %v", err)
-	}
-	time.Sleep(settle)
-	return server, client
-}
-
 func TestHandleMessage_SubscribeRegistersConnection(t *testing.T) {
 	b := newBroker("test")
 	server, client := net.Pipe()
@@ -192,7 +219,7 @@ func TestHandleMessage_SubscribeRegistersConnection(t *testing.T) {
 	msg := Message{Command: "SUBSCRIBE", Topic: "orders"}
 	data, _ := json.Marshal(msg)
 	client.Write(data)
-	time.Sleep(settle)
+	waitForSubs(t, b, "orders", 1)
 
 	b.mu.RLock()
 	n := len(b.subscribers["orders"])
@@ -263,7 +290,7 @@ func TestHandleMessage_InvalidJSONIgnored(t *testing.T) {
 	go b.handleMessage(server)
 
 	client.Write([]byte("not json {{{}"))
-	time.Sleep(settle)
+	time.Sleep(20 * time.Millisecond)
 
 	b.mu.RLock()
 	total := 0
@@ -286,7 +313,7 @@ func TestHandleMessage_UnknownCommandIgnored(t *testing.T) {
 	msg := Message{Command: "DELETE", Topic: "orders"}
 	data, _ := json.Marshal(msg)
 	client.Write(data)
-	time.Sleep(settle)
+	time.Sleep(20 * time.Millisecond)
 
 	b.mu.RLock()
 	n := len(b.subscribers["orders"])
@@ -319,12 +346,11 @@ func TestHandleMessage_ReturnsOnClientDisconnect(t *testing.T) {
 // ---- integration tests (real TCP, broker on :0) ----
 
 func TestIntegration_SubscribeAndReceive(t *testing.T) {
-	_, addr := startTestBroker(t)
-	time.Sleep(settle)
+	b, addr := startTestBroker(t)
 
 	sub := sendSubscribe(t, addr, "events")
 	defer sub.Close()
-	time.Sleep(settle)
+	waitForSubs(t, b, "events", 1)
 
 	sendPublish(t, addr, "events", "hello world")
 
@@ -335,8 +361,7 @@ func TestIntegration_SubscribeAndReceive(t *testing.T) {
 }
 
 func TestIntegration_MultipleSubscribersSameTopic(t *testing.T) {
-	_, addr := startTestBroker(t)
-	time.Sleep(settle)
+	b, addr := startTestBroker(t)
 
 	sub1 := sendSubscribe(t, addr, "news")
 	sub2 := sendSubscribe(t, addr, "news")
@@ -344,7 +369,7 @@ func TestIntegration_MultipleSubscribersSameTopic(t *testing.T) {
 	defer sub1.Close()
 	defer sub2.Close()
 	defer sub3.Close()
-	time.Sleep(settle)
+	waitForSubs(t, b, "news", 3)
 
 	sendPublish(t, addr, "news", "broadcast")
 
@@ -357,14 +382,14 @@ func TestIntegration_MultipleSubscribersSameTopic(t *testing.T) {
 }
 
 func TestIntegration_TopicIsolation(t *testing.T) {
-	_, addr := startTestBroker(t)
-	time.Sleep(settle)
+	b, addr := startTestBroker(t)
 
 	subA := sendSubscribe(t, addr, "topicA")
 	subB := sendSubscribe(t, addr, "topicB")
 	defer subA.Close()
 	defer subB.Close()
-	time.Sleep(settle)
+	waitForSubs(t, b, "topicA", 1)
+	waitForSubs(t, b, "topicB", 1)
 
 	sendPublish(t, addr, "topicA", "only for A")
 
@@ -378,14 +403,14 @@ func TestIntegration_TopicIsolation(t *testing.T) {
 }
 
 func TestIntegration_MultipleTopicsIndependent(t *testing.T) {
-	_, addr := startTestBroker(t)
-	time.Sleep(settle)
+	b, addr := startTestBroker(t)
 
 	subA := sendSubscribe(t, addr, "alpha")
 	subB := sendSubscribe(t, addr, "beta")
 	defer subA.Close()
 	defer subB.Close()
-	time.Sleep(settle)
+	waitForSubs(t, b, "alpha", 1)
+	waitForSubs(t, b, "beta", 1)
 
 	sendPublish(t, addr, "alpha", "msg-alpha")
 	sendPublish(t, addr, "beta", "msg-beta")
@@ -400,24 +425,21 @@ func TestIntegration_MultipleTopicsIndependent(t *testing.T) {
 
 func TestIntegration_PublishWithNoSubscribers(t *testing.T) {
 	_, addr := startTestBroker(t)
-	time.Sleep(settle)
 
 	// Must not panic or block.
 	sendPublish(t, addr, "empty-topic", "nobody home")
-	time.Sleep(50 * time.Millisecond)
 }
 
 func TestIntegration_PublishBeforeSubscribe(t *testing.T) {
-	_, addr := startTestBroker(t)
-	time.Sleep(settle)
+	b, addr := startTestBroker(t)
 
 	// Publish first, then subscribe — subscriber must NOT receive the old message.
 	sendPublish(t, addr, "late", "early bird")
-	time.Sleep(settle)
+	waitForActiveConns(t, b, 0) // ensure publish goroutine has finished before subscribing
 
 	sub := sendSubscribe(t, addr, "late")
 	defer sub.Close()
-	time.Sleep(settle)
+	waitForSubs(t, b, "late", 1)
 
 	if !readTimesOut(sub, 150*time.Millisecond) {
 		t.Fatal("subscriber should not receive messages published before it subscribed")
@@ -425,12 +447,11 @@ func TestIntegration_PublishBeforeSubscribe(t *testing.T) {
 }
 
 func TestIntegration_SequentialMessages(t *testing.T) {
-	_, addr := startTestBroker(t)
-	time.Sleep(settle)
+	b, addr := startTestBroker(t)
 
 	sub := sendSubscribe(t, addr, "seq")
 	defer sub.Close()
-	time.Sleep(settle)
+	waitForSubs(t, b, "seq", 1)
 
 	messages := []string{"one", "two", "three"}
 	for _, m := range messages {
@@ -450,20 +471,27 @@ func TestIntegration_SequentialMessages(t *testing.T) {
 	}
 	sub.SetReadDeadline(time.Time{})
 
-	if received != "onetwothree" {
-		t.Fatalf("expected 'onetwothree', got %q", received)
+	// Each publish uses a separate TCP connection handled by a separate broker
+	// goroutine, so arrival order is not guaranteed. Verify all three messages
+	// arrived and nothing else.
+	if len(received) != len("onetwothree") {
+		t.Fatalf("expected %d bytes, got %d: %q", len("onetwothree"), len(received), received)
+	}
+	for _, msg := range messages {
+		if !strings.Contains(received, msg) {
+			t.Fatalf("expected %q in received output, got %q", msg, received)
+		}
 	}
 }
 
 // TestIntegration_ConcurrentPublish verifies no data races under concurrent
 // publishes. Run with: go test -race
 func TestIntegration_ConcurrentPublish(t *testing.T) {
-	_, addr := startTestBroker(t)
-	time.Sleep(settle)
+	b, addr := startTestBroker(t)
 
 	sub := sendSubscribe(t, addr, "stream")
 	defer sub.Close()
-	time.Sleep(settle)
+	waitForSubs(t, b, "stream", 1)
 
 	const n = 30
 	var wg sync.WaitGroup
@@ -497,8 +525,7 @@ func TestIntegration_ConcurrentPublish(t *testing.T) {
 // TestIntegration_ConcurrentSubscribeAndPublish exercises simultaneous
 // subscribe and publish — intended for -race detection.
 func TestIntegration_ConcurrentSubscribeAndPublish(t *testing.T) {
-	_, addr := startTestBroker(t)
-	time.Sleep(settle)
+	b, addr := startTestBroker(t)
 
 	var mu sync.Mutex
 	var conns []net.Conn
@@ -520,7 +547,7 @@ func TestIntegration_ConcurrentSubscribeAndPublish(t *testing.T) {
 			c.Close()
 		}
 	}()
-	time.Sleep(settle)
+	waitForSubs(t, b, "race", 10)
 
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
@@ -530,7 +557,6 @@ func TestIntegration_ConcurrentSubscribeAndPublish(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	time.Sleep(50 * time.Millisecond)
 }
 
 // ---- API test infrastructure ----
@@ -772,7 +798,7 @@ func TestAPI_Subscribe_RegistersWithBroker(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
-	time.Sleep(settle)
+	waitForSubs(t, apiTestBroker, "reg-topic", 1)
 
 	apiTestBroker.mu.RLock()
 	n := len(apiTestBroker.subscribers["reg-topic"])
@@ -789,12 +815,12 @@ func TestAPI_Publish_DeliversMessage(t *testing.T) {
 	apiReq(t, r, "POST", "/publisher", `{"name":"pub1"}`)
 	apiReq(t, r, "POST", "/subscriber", `{"name":"sub1"}`)
 	apiReq(t, r, "POST", "/topic", `{"name":"delivery-topic","subscriber":"sub1"}`)
-	time.Sleep(settle)
+	waitForSubs(t, apiTestBroker, "delivery-topic", 1)
 
 	// Open a monitor directly on the broker to capture the published message.
 	monitor := sendSubscribe(t, "localhost:8080", "delivery-topic")
 	defer monitor.Close()
-	time.Sleep(settle)
+	waitForSubs(t, apiTestBroker, "delivery-topic", 2)
 
 	w := apiReq(t, r, "POST", "/publish", `{"name":"pub1","topic":"delivery-topic","message":"hello-api"}`)
 	if w.Code != http.StatusOK {
@@ -813,7 +839,7 @@ func TestAPI_Unsubscribe_RemovesFromBroker(t *testing.T) {
 
 	apiReq(t, r, "POST", "/subscriber", `{"name":"sub1"}`)
 	apiReq(t, r, "POST", "/topic", `{"name":"unsub-topic","subscriber":"sub1"}`)
-	time.Sleep(settle)
+	waitForSubs(t, apiTestBroker, "unsub-topic", 1)
 
 	apiTestBroker.mu.RLock()
 	before := len(apiTestBroker.subscribers["unsub-topic"])
@@ -823,7 +849,7 @@ func TestAPI_Unsubscribe_RemovesFromBroker(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
-	time.Sleep(settle)
+	waitForSubs(t, apiTestBroker, "unsub-topic", 0)
 
 	apiTestBroker.mu.RLock()
 	after := len(apiTestBroker.subscribers["unsub-topic"])
@@ -847,7 +873,8 @@ func TestAPI_GetState_ReflectsSubscriptions(t *testing.T) {
 	apiReq(t, r, "POST", "/topic", `{"name":"orders","subscriber":"sub1"}`)
 	apiReq(t, r, "POST", "/topic", `{"name":"payments","subscriber":"sub1"}`)
 	apiReq(t, r, "POST", "/topic", `{"name":"orders","subscriber":"sub2"}`)
-	time.Sleep(settle)
+	waitForSubs(t, apiTestBroker, "orders", 2)
+	waitForSubs(t, apiTestBroker, "payments", 1)
 
 	w := apiReq(t, r, "GET", "/state", "")
 	if w.Code != http.StatusOK {

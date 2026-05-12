@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"sync"
 )
 
 type Message struct {
@@ -18,11 +19,14 @@ type Subscriber struct {
 	Name   string `json:"name"`
 	topics []string
 	conns  map[string]net.Conn
+	mu     sync.RWMutex
 }
 
 func (s *Subscriber) unsubscribeFromTopic(topic string) {
+	s.mu.Lock()
 	conn, ok := s.conns[topic]
 	if !ok {
+		s.mu.Unlock()
 		fmt.Println("not subscribed to topic:", topic)
 		return
 	}
@@ -34,6 +38,7 @@ func (s *Subscriber) unsubscribeFromTopic(topic string) {
 		}
 	}
 	delete(s.conns, topic)
+	s.mu.Unlock()
 
 	msg := Message{
 		Command: "UNSUBSCRIBE",
@@ -52,11 +57,13 @@ func (s *Subscriber) subscribeToTopic(topic string) {
 		return
 	}
 
+	s.mu.Lock()
 	s.topics = append(s.topics, topic)
 	if s.conns == nil {
 		s.conns = make(map[string]net.Conn)
 	}
 	s.conns[topic] = conn
+	s.mu.Unlock()
 
 	msg := Message{
 		Command: "SUBSCRIBE",

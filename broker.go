@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"sync/atomic"
 )
 
 type Broker struct {
 	mu          sync.RWMutex
+	activeConns atomic.Int32
 	name        string
 	subscribers map[string][]net.Conn
 }
@@ -54,7 +56,11 @@ func (b *Broker) serve(ln net.Listener) {
 		if err != nil {
 			return
 		}
-		go b.handleMessage(conn)
+		b.activeConns.Add(1)
+		go func() {
+			defer b.activeConns.Add(-1)
+			b.handleMessage(conn)
+		}()
 	}
 }
 
