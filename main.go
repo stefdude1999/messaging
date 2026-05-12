@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"sync"
 
 	docs "example.com/messaging/docs"
 	"github.com/gin-gonic/gin"
+	rkboot "github.com/rookie-ninja/rk-boot"
+	rkgin "github.com/rookie-ninja/rk-gin/boot"
 	swaggerfiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -41,11 +44,14 @@ type stateView struct {
 var globalmu sync.RWMutex
 
 func main() {
-	//	wg := sync.WaitGroup{}
+	boot := rkboot.NewBoot()
+	boot.Bootstrap(context.Background())
+
 	b1 := newBroker("broker")
 	go b1.initializeBroker()
-	router := gin.Default()
-	v1 := router.Group("/api/v1")
+
+	ginEntry := rkgin.GetGinEntry("greeter")
+	v1 := ginEntry.Router.Group("/api/v1")
 	docs.SwaggerInfo.BasePath = "/api/v1"
 	{
 		eg := v1.Group("/messaging")
@@ -58,10 +64,9 @@ func main() {
 			eg.GET("/state", getState)
 		}
 	}
-	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+	ginEntry.Router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
 
-	router.Run("localhost:9001")
-	//wg.Wait()
+	boot.WaitForShutdownSig(context.Background())
 }
 
 // @BasePath /api/v1

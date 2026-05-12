@@ -1,0 +1,6 @@
+# Certificates and keys
+cert/
+*.pem
+*.csr
+ca-csr.json
+ca-config.json

@@ -6,7 +6,57 @@ Simple pub sub service. Allows the creation of arbitrary publishers and subscrib
 
 ## How to run
 
-Clone the repo, and then run `go run .`, and follow the instructions in the prompts. To test, run `go test -race`
+Clone the repo, then follow the steps below.
+
+### 1. Install cfssl
+
+```bash
+go install github.com/cloudflare/cfssl/cmd/cfssl@latest
+go install github.com/cloudflare/cfssl/cmd/cfssljson@latest
+```
+
+Make sure `$(go env GOPATH)/bin` is in your PATH:
+
+```bash
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
+
+### 2. Generate certificates
+
+```bash
+# Generate the CA
+cat > ca-csr.json <<EOF
+{
+  "CN": "My CA",
+  "key": { "algo": "rsa", "size": 2048 },
+  "names": [{ "C": "US", "ST": "CA", "L": "San Francisco", "O": "My Org" }]
+}
+EOF
+cfssl gencert -initca ca-csr.json | cfssljson -bare ca
+
+# Generate the server cert (trusted for localhost)
+mkdir -p cert
+echo '{"CN":"localhost","hosts":["localhost","127.0.0.1"],"key":{"algo":"rsa","size":2048}}' > server-csr.json
+cfssl gencert -ca=ca.pem -ca-key=ca-key.pem server-csr.json | cfssljson -bare cert/server
+```
+
+### 3. Trust the CA (macOS)
+
+```bash
+sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ca.pem
+```
+
+Restart your browser after running this.
+
+### 4. Run
+
+```bash
+go run .
+```
+
+To test, run `go test -race`
+
+The API is available at https://localhost:9001/swagger/index.html
 
 ## What's Next, In Order I'd Like To Make The Changes
 
@@ -15,7 +65,7 @@ Clone the repo, and then run `go run .`, and follow the instructions in the prom
 - ~~Currently runs in a big nasty for loop with various substeps that check previous input before asking for further input, which can get quite complicated as the project grows and more features are added. I would like to make it more like an API server, where the user can make POST/GET/UPDATE requests to add pubs, subs, topics, etc. Inspired by Google's [pub/sub APIs](https://docs.cloud.google.com/pubsub/docs/reference/rest?rep_location=global)~~
 - Use wildcards when publishing messages. Right now, you have to manually type out the topic you wish to publish to. I'd like to have something like `*` which publishes to every available topic, and then like `orders.*` which would publish to everything that has the suffix of "orders", and then even something like `a.*.b`, etc
 - Creating a visual interface using React, where you can visually create new pubs/subs, and then make API calls to update the structure of the Pub/Sub accordingly
-- Add a "swagger" equivalent to the API
+- ~Add a "swagger" equivalent to the API~
 - Dockerize everything
 
 ### Advanced Features
