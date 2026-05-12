@@ -1,0 +1,65 @@
+basePath: /api/v1
+info:
+  contact: {}
+paths:
+  /publish:
+    post:
+      consumes:
+      - application/json
+      description: Pass in a topic, a publisher and a message
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Publish a message to a topic
+      tags:
+      - example
+  /state:
+    get:
+      consumes:
+      - application/json
+      description: Print the nested structure of a system
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Print system
+      tags:
+      - example
+  /topic:
+    post:
+      consumes:
+      - application/json
+      description: Create a new topic and associate it with a subscriber
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Create a new topic
+      tags:
+      - example
+  /unsubscribe:
+    put:
+      consumes:
+      - application/json
+      description: Remove listener from subscriber to a specific topic
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Unsubscribe subscriber to a topic
+      tags:
+      - example
+swagger: "2.0"

@@ -5,6 +5,9 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
+	docs "github.com/messaging/docs"
+	swaggerfiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 var subs []Subscriber
@@ -42,18 +45,28 @@ func main() {
 	b1 := newBroker("broker")
 	go b1.initializeBroker()
 	router := gin.Default()
-
+	docs.SwaggerInfo.BasePath = "/api/v1"
 	router.POST("/publisher", postPublisher)
 	router.POST("/subscriber", postSubscriber)
 	router.POST("/topic", postTopic)
 	router.POST("/publish", postPublish)
 	router.PUT("/unsubscribe", updateUnsubscribe)
 	router.GET("/state", getState)
-
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
 	router.Run("localhost:9001")
 	//wg.Wait()
 }
 
+// @BasePath /api/v1
+// stefmessaging godoc
+// @Summary Create a new publisher
+// @Schemes
+// @Description Create a new publisher and give it a name
+// @Tags example
+// @Accept json
+// @Produce json
+// @Success 200 {string} Helloworld
+// @Router /topic [post]
 func postPublisher(c *gin.Context) {
 	var publisher Publisher
 
@@ -66,6 +79,16 @@ func postPublisher(c *gin.Context) {
 	globalmu.Unlock()
 }
 
+// @BasePath /api/v1
+// stefmessaging godoc
+// @Summary Create a new subscriber
+// @Schemes
+// @Description Create a new subscriber with a name
+// @Tags example
+// @Accept json
+// @Produce json
+// @Success 200 {string} Helloworld
+// @Router /topic [post]
 func postSubscriber(c *gin.Context) {
 	var subscriber Subscriber
 
@@ -78,6 +101,16 @@ func postSubscriber(c *gin.Context) {
 	globalmu.Unlock()
 }
 
+// @BasePath /api/v1
+// stefmessaging godoc
+// @Summary Create a new topic
+// @Schemes
+// @Description Create a new topic and associate it with a subscriber
+// @Tags example
+// @Accept json
+// @Produce json
+// @Success 200 {string} Helloworld
+// @Router /topic [post]
 func postTopic(c *gin.Context) {
 	var newTopic topic
 
@@ -96,6 +129,16 @@ func postTopic(c *gin.Context) {
 	globalmu.RUnlock()
 }
 
+// @BasePath /api/v1
+// stefmessaging godoc
+// @Summary Unsubscribe subscriber to a topic
+// @Schemes
+// @Description Remove listener from subscriber to a specific topic
+// @Tags example
+// @Accept json
+// @Produce json
+// @Success 200 {string} Helloworld
+// @Router /unsubscribe [put]
 func updateUnsubscribe(c *gin.Context) {
 	var newUnsubscribe topic
 
@@ -113,6 +156,16 @@ func updateUnsubscribe(c *gin.Context) {
 	globalmu.RUnlock()
 }
 
+// @BasePath /api/v1
+// stefmessaging godoc
+// @Summary Publish a message to a topic
+// @Schemes
+// @Description Pass in a topic, a publisher and a message
+// @Tags example
+// @Accept json
+// @Produce json
+// @Success 200 {string} Helloworld
+// @Router /publish [post]
 func postPublish(c *gin.Context) {
 	var newPublish publish
 
@@ -132,6 +185,17 @@ func postPublish(c *gin.Context) {
 	globalmu.RUnlock()
 }
 
+// @BasePath /api/v1
+
+// stefmessaging godoc
+// @Summary Print system
+// @Schemes
+// @Description Print the nested structure of a system
+// @Tags example
+// @Accept json
+// @Produce json
+// @Success 200 {string} Helloworld
+// @Router /state [get]
 func getState(c *gin.Context) {
 	state := stateView{
 		Publishers:  make([]string, 0, len(pubs)),
