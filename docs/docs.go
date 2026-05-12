@@ -28,6 +28,51 @@ const docTemplate = `{
                     "example"
                 ],
                 "summary": "Publish a message to a topic",
+                "parameters": [
+                    {
+                        "description": "Publish object",
+                        "name": "publish",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/main.publish"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/publisher": {
+            "post": {
+                "description": "Create a new publisher and give it a name",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "example"
+                ],
+                "summary": "Create a new publisher",
+                "parameters": [
+                    {
+                        "description": "Publisher object",
+                        "name": "publisher",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/main.Publisher"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -61,6 +106,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/subscriber": {
+            "post": {
+                "description": "Create a new subscriber with a name",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "example"
+                ],
+                "summary": "Create a new subscriber",
+                "parameters": [
+                    {
+                        "description": "Subscriber object",
+                        "name": "subscriber",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/main.Subscriber"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/topic": {
             "post": {
                 "description": "Create a new topic and associate it with a subscriber",
@@ -74,6 +153,17 @@ const docTemplate = `{
                     "example"
                 ],
                 "summary": "Create a new topic",
+                "parameters": [
+                    {
+                        "description": "Topic object",
+                        "name": "topic",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/main.topic"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -97,6 +187,17 @@ const docTemplate = `{
                     "example"
                 ],
                 "summary": "Unsubscribe subscriber to a topic",
+                "parameters": [
+                    {
+                        "description": "Topic object",
+                        "name": "topic",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/main.topic"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -104,6 +205,49 @@ const docTemplate = `{
                             "type": "string"
                         }
                     }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "main.Publisher": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "main.Subscriber": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "main.publish": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "topic": {
+                    "type": "string"
+                }
+            }
+        },
+        "main.topic": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "subscriber": {
+                    "type": "string"
                 }
             }
         }

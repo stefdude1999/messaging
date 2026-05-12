@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
-	docs "github.com/messaging/docs"
+	docs "example.com/messaging/docs"
 	swaggerfiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -65,8 +65,9 @@ func main() {
 // @Tags example
 // @Accept json
 // @Produce json
+// @Param publisher body Publisher true "Publisher object"
 // @Success 200 {string} Helloworld
-// @Router /topic [post]
+// @Router /publisher [post]
 func postPublisher(c *gin.Context) {
 	var publisher Publisher
 
@@ -87,8 +88,9 @@ func postPublisher(c *gin.Context) {
 // @Tags example
 // @Accept json
 // @Produce json
+// @Param subscriber body Subscriber true "Subscriber object"
 // @Success 200 {string} Helloworld
-// @Router /topic [post]
+// @Router /subscriber [post]
 func postSubscriber(c *gin.Context) {
 	var subscriber Subscriber
 
@@ -109,6 +111,7 @@ func postSubscriber(c *gin.Context) {
 // @Tags example
 // @Accept json
 // @Produce json
+// @Param topic body topic true "Topic object"
 // @Success 200 {string} Helloworld
 // @Router /topic [post]
 func postTopic(c *gin.Context) {
@@ -137,6 +140,7 @@ func postTopic(c *gin.Context) {
 // @Tags example
 // @Accept json
 // @Produce json
+// @Param topic body topic true "Topic object"
 // @Success 200 {string} Helloworld
 // @Router /unsubscribe [put]
 func updateUnsubscribe(c *gin.Context) {
@@ -164,6 +168,7 @@ func updateUnsubscribe(c *gin.Context) {
 // @Tags example
 // @Accept json
 // @Produce json
+// @Param publish body publish true "Publish object"
 // @Success 200 {string} Helloworld
 // @Router /publish [post]
 func postPublish(c *gin.Context) {

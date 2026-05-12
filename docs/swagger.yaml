@@ -1,4 +1,31 @@
 basePath: /api/v1
+definitions:
+  main.Publisher:
+    properties:
+      name:
+        type: string
+    type: object
+  main.Subscriber:
+    properties:
+      name:
+        type: string
+    type: object
+  main.publish:
+    properties:
+      message:
+        type: string
+      name:
+        type: string
+      topic:
+        type: string
+    type: object
+  main.topic:
+    properties:
+      name:
+        type: string
+      subscriber:
+        type: string
+    type: object
 info:
   contact: {}
 paths:
@@ -7,6 +34,13 @@ paths:
       consumes:
       - application/json
       description: Pass in a topic, a publisher and a message
+      parameters:
+      - description: Publish object
+        in: body
+        name: publish
+        required: true
+        schema:
+          $ref: '#/definitions/main.publish'
       produces:
       - application/json
       responses:
@@ -15,6 +49,28 @@ paths:
           schema:
             type: string
       summary: Publish a message to a topic
+      tags:
+      - example
+  /publisher:
+    post:
+      consumes:
+      - application/json
+      description: Create a new publisher and give it a name
+      parameters:
+      - description: Publisher object
+        in: body
+        name: publisher
+        required: true
+        schema:
+          $ref: '#/definitions/main.Publisher'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Create a new publisher
       tags:
       - example
   /state:
@@ -32,11 +88,40 @@ paths:
       summary: Print system
       tags:
       - example
+  /subscriber:
+    post:
+      consumes:
+      - application/json
+      description: Create a new subscriber with a name
+      parameters:
+      - description: Subscriber object
+        in: body
+        name: subscriber
+        required: true
+        schema:
+          $ref: '#/definitions/main.Subscriber'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Create a new subscriber
+      tags:
+      - example
   /topic:
     post:
       consumes:
       - application/json
       description: Create a new topic and associate it with a subscriber
+      parameters:
+      - description: Topic object
+        in: body
+        name: topic
+        required: true
+        schema:
+          $ref: '#/definitions/main.topic'
       produces:
       - application/json
       responses:
@@ -52,6 +137,13 @@ paths:
       consumes:
       - application/json
       description: Remove listener from subscriber to a specific topic
+      parameters:
+      - description: Topic object
+        in: body
+        name: topic
+        required: true
+        schema:
+          $ref: '#/definitions/main.topic'
       produces:
       - application/json
       responses:
