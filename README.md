@@ -87,7 +87,7 @@ AI generated improvement ideas below:
 
 ### Code Quality
 
-- ~Protect global `subs` and `p`ubs` slices with a mutex — currently unguarded against concurrent API requests
+- ~Protect global `subs` and `pubs` slices with a mutex — currently unguarded against concurrent API requests ~
 - Return proper error responses from API handlers on JSON bind failures (currently return silently with no response)
 - Replace `fmt.Println` logging with a structured logger (e.g. `log/slog`) with severity levels
 - Fix silently ignored `json.Marshal` errors in publisher
