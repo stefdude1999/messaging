@@ -15,7 +15,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/publish": {
+        "/messaging/publish": {
             "post": {
                 "description": "Pass in a topic, a publisher and a message",
                 "consumes": [
@@ -49,7 +49,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/publisher": {
+        "/messaging/publisher": {
             "post": {
                 "description": "Create a new publisher and give it a name",
                 "consumes": [
@@ -83,7 +83,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/state": {
+        "/messaging/state": {
             "get": {
                 "description": "Print the nested structure of a system",
                 "consumes": [
@@ -106,7 +106,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/subscriber": {
+        "/messaging/subscriber": {
             "post": {
                 "description": "Create a new subscriber with a name",
                 "consumes": [
@@ -140,7 +140,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/topic": {
+        "/messaging/topic": {
             "post": {
                 "description": "Create a new topic and associate it with a subscriber",
                 "consumes": [
@@ -174,7 +174,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/unsubscribe": {
+        "/messaging/unsubscribe": {
             "put": {
                 "description": "Remove listener from subscriber to a specific topic",
                 "consumes": [

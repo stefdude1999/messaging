@@ -5,7 +5,7 @@
     },
     "basePath": "/api/v1",
     "paths": {
-        "/publish": {
+        "/messaging/publish": {
             "post": {
                 "description": "Pass in a topic, a publisher and a message",
                 "consumes": [
@@ -39,7 +39,7 @@
                 }
             }
         },
-        "/publisher": {
+        "/messaging/publisher": {
             "post": {
                 "description": "Create a new publisher and give it a name",
                 "consumes": [
@@ -73,7 +73,7 @@
                 }
             }
         },
-        "/state": {
+        "/messaging/state": {
             "get": {
                 "description": "Print the nested structure of a system",
                 "consumes": [
@@ -96,7 +96,7 @@
                 }
             }
         },
-        "/subscriber": {
+        "/messaging/subscriber": {
             "post": {
                 "description": "Create a new subscriber with a name",
                 "consumes": [
@@ -130,7 +130,7 @@
                 }
             }
         },
-        "/topic": {
+        "/messaging/topic": {
             "post": {
                 "description": "Create a new topic and associate it with a subscriber",
                 "consumes": [
@@ -164,7 +164,7 @@
                 }
             }
         },
-        "/unsubscribe": {
+        "/messaging/unsubscribe": {
             "put": {
                 "description": "Remove listener from subscriber to a specific topic",
                 "consumes": [

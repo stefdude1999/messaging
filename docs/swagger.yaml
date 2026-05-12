@@ -29,7 +29,7 @@ definitions:
 info:
   contact: {}
 paths:
-  /publish:
+  /messaging/publish:
     post:
       consumes:
       - application/json
@@ -51,7 +51,7 @@ paths:
       summary: Publish a message to a topic
       tags:
       - example
-  /publisher:
+  /messaging/publisher:
     post:
       consumes:
       - application/json
@@ -73,7 +73,7 @@ paths:
       summary: Create a new publisher
       tags:
       - example
-  /state:
+  /messaging/state:
     get:
       consumes:
       - application/json
@@ -88,7 +88,7 @@ paths:
       summary: Print system
       tags:
       - example
-  /subscriber:
+  /messaging/subscriber:
     post:
       consumes:
       - application/json
@@ -110,7 +110,7 @@ paths:
       summary: Create a new subscriber
       tags:
       - example
-  /topic:
+  /messaging/topic:
     post:
       consumes:
       - application/json
@@ -132,7 +132,7 @@ paths:
       summary: Create a new topic
       tags:
       - example
-  /unsubscribe:
+  /messaging/unsubscribe:
     put:
       consumes:
       - application/json

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/gin-gonic/gin"
 	docs "example.com/messaging/docs"
+	"github.com/gin-gonic/gin"
 	swaggerfiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -45,14 +45,21 @@ func main() {
 	b1 := newBroker("broker")
 	go b1.initializeBroker()
 	router := gin.Default()
+	v1 := router.Group("/api/v1")
 	docs.SwaggerInfo.BasePath = "/api/v1"
-	router.POST("/publisher", postPublisher)
-	router.POST("/subscriber", postSubscriber)
-	router.POST("/topic", postTopic)
-	router.POST("/publish", postPublish)
-	router.PUT("/unsubscribe", updateUnsubscribe)
-	router.GET("/state", getState)
+	{
+		eg := v1.Group("/messaging")
+		{
+			eg.POST("/publisher", postPublisher)
+			eg.POST("/subscriber", postSubscriber)
+			eg.POST("/topic", postTopic)
+			eg.POST("/publish", postPublish)
+			eg.PUT("/unsubscribe", updateUnsubscribe)
+			eg.GET("/state", getState)
+		}
+	}
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+
 	router.Run("localhost:9001")
 	//wg.Wait()
 }
@@ -67,7 +74,7 @@ func main() {
 // @Produce json
 // @Param publisher body Publisher true "Publisher object"
 // @Success 200 {string} Helloworld
-// @Router /publisher [post]
+// @Router /messaging/publisher [post]
 func postPublisher(c *gin.Context) {
 	var publisher Publisher
 
@@ -90,7 +97,7 @@ func postPublisher(c *gin.Context) {
 // @Produce json
 // @Param subscriber body Subscriber true "Subscriber object"
 // @Success 200 {string} Helloworld
-// @Router /subscriber [post]
+// @Router /messaging/subscriber [post]
 func postSubscriber(c *gin.Context) {
 	var subscriber Subscriber
 
@@ -113,7 +120,7 @@ func postSubscriber(c *gin.Context) {
 // @Produce json
 // @Param topic body topic true "Topic object"
 // @Success 200 {string} Helloworld
-// @Router /topic [post]
+// @Router /messaging/topic [post]
 func postTopic(c *gin.Context) {
 	var newTopic topic
 
@@ -142,7 +149,7 @@ func postTopic(c *gin.Context) {
 // @Produce json
 // @Param topic body topic true "Topic object"
 // @Success 200 {string} Helloworld
-// @Router /unsubscribe [put]
+// @Router /messaging/unsubscribe [put]
 func updateUnsubscribe(c *gin.Context) {
 	var newUnsubscribe topic
 
@@ -170,7 +177,7 @@ func updateUnsubscribe(c *gin.Context) {
 // @Produce json
 // @Param publish body publish true "Publish object"
 // @Success 200 {string} Helloworld
-// @Router /publish [post]
+// @Router /messaging/publish [post]
 func postPublish(c *gin.Context) {
 	var newPublish publish
 
@@ -200,7 +207,7 @@ func postPublish(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Success 200 {string} Helloworld
-// @Router /state [get]
+// @Router /messaging/state [get]
 func getState(c *gin.Context) {
 	state := stateView{
 		Publishers:  make([]string, 0, len(pubs)),
