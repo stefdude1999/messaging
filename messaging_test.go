@@ -76,6 +76,7 @@ func sendPublish(t *testing.T, addr, topic, text string) {
 }
 
 // readWithTimeout reads from conn and fails the test if nothing arrives within timeout.
+// If the received bytes are a JSON Message, the Text field is returned.
 func readWithTimeout(t *testing.T, conn net.Conn, timeout time.Duration) string {
 	t.Helper()
 	conn.SetReadDeadline(time.Now().Add(timeout))
@@ -85,6 +86,10 @@ func readWithTimeout(t *testing.T, conn net.Conn, timeout time.Duration) string 
 		t.Fatalf("expected message but got read error: %v", err)
 	}
 	conn.SetReadDeadline(time.Time{})
+	var msg Message
+	if json.Unmarshal(buf[:n], &msg) == nil && msg.Text != "" {
+		return msg.Text
+	}
 	return string(buf[:n])
 }
 
@@ -458,28 +463,35 @@ func TestIntegration_SequentialMessages(t *testing.T) {
 		sendPublish(t, addr, "seq", m)
 	}
 
-	// TCP is a stream — reads may coalesce, so accumulate until we have all bytes.
-	received := ""
+	// TCP is a stream — reads may coalesce, so use a JSON decoder to handle
+	// concatenated message objects.
+	received := []string{}
+	dec := json.NewDecoder(sub)
 	sub.SetReadDeadline(time.Now().Add(time.Second))
-	buf := make([]byte, 1024)
-	for len(received) < len("onetwothree") {
-		n, err := sub.Read(buf)
-		if err != nil {
+	for len(received) < len(messages) {
+		var msg Message
+		if err := dec.Decode(&msg); err != nil {
 			break
 		}
-		received += string(buf[:n])
+		received = append(received, msg.Text)
 	}
 	sub.SetReadDeadline(time.Time{})
 
 	// Each publish uses a separate TCP connection handled by a separate broker
-	// goroutine, so arrival order is not guaranteed. Verify all three messages
-	// arrived and nothing else.
-	if len(received) != len("onetwothree") {
-		t.Fatalf("expected %d bytes, got %d: %q", len("onetwothree"), len(received), received)
+	// goroutine, so arrival order is not guaranteed. Verify all three messages arrived.
+	if len(received) != len(messages) {
+		t.Fatalf("expected %d messages, got %d: %v", len(messages), len(received), received)
 	}
 	for _, msg := range messages {
-		if !strings.Contains(received, msg) {
-			t.Fatalf("expected %q in received output, got %q", msg, received)
+		found := false
+		for _, r := range received {
+			if r == msg {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected %q in received messages, got %v", msg, received)
 		}
 	}
 }

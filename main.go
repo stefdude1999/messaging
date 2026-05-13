@@ -20,27 +20,6 @@ var pubs []Publisher
 // GET overall structure
 // UPDATE unsubscribe
 
-type topic struct {
-	Name       string `json:"name"`
-	Subscriber string `json:"subscriber"`
-}
-
-type publish struct {
-	Name    string `json:"name"`
-	Topic   string `json:"topic"`
-	Message string `json:"message"`
-}
-
-type subscriberView struct {
-	Name   string   `json:"name"`
-	Topics []string `json:"topics"`
-}
-
-type stateView struct {
-	Publishers  []string         `json:"publishers"`
-	Subscribers []subscriberView `json:"subscribers"`
-}
-
 var globalmu sync.RWMutex
 
 func main() {
@@ -185,7 +164,6 @@ func updateUnsubscribe(c *gin.Context) {
 // @Router /messaging/publish [post]
 func postPublish(c *gin.Context) {
 	var newPublish publish
-
 	// Call BindJSON to bind the received JSON to
 	// newAlbum.
 	if err := c.BindJSON(&newPublish); err != nil {
@@ -194,8 +172,10 @@ func postPublish(c *gin.Context) {
 	globalmu.RLock()
 	to_find := findPub(pubs, newPublish.Name)
 	if to_find != nil {
-
-		go to_find.publishToTopic(newPublish.Topic, newPublish.Message)
+		result := to_find.publishToTopic(newPublish.Topic, newPublish.Message)
+		c.JSON(http.StatusOK, gin.H{
+			"message": result,
+		})
 	} else {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "could not find publisher"})
 	}

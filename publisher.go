@@ -8,13 +8,13 @@ import (
 	"github.com/google/uuid"
 )
 
-func (p *Publisher) publishToTopic(topic string, message string) {
-	// Connect to the server
+func (p *Publisher) publishToTopic(topic string, message string) string {
 	conn, err := net.Dial("tcp", "localhost:8080")
 	if err != nil {
 		fmt.Println(err)
-		return
+		return err.Error()
 	}
+	defer conn.Close()
 
 	guid := uuid.New()
 
@@ -26,13 +26,21 @@ func (p *Publisher) publishToTopic(topic string, message string) {
 	}
 
 	data, _ := json.Marshal(msg)
-
 	conn.Write(data)
 
-	// Close the connection
-	conn.Close()
-}
+	buf := make([]byte, 1024)
+	for {
+		n, err := conn.Read(buf)
+		if err != nil {
+			fmt.Println("disconnected:", err)
+			return "ended"
+		}
 
-type Publisher struct {
-	Name string `json:"name"`
+		var received Message
+		json.Unmarshal(buf[:n], &received)
+
+		if received.GUID == guid.String() {
+			return "ACK" + ": " + received.GUID
+		}
+	}
 }

@@ -4,22 +4,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"sync"
 )
 
-type Message struct {
-	Command    string
-	Topic      string
-	Text       string
-	connection net.Conn
-	GUID       string
-}
+func (s *Subscriber) sendAck(GUID string) {
+	conn, err := net.Dial("tcp", "localhost:8080")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
-type Subscriber struct {
-	Name   string `json:"name"`
-	topics []string
-	conns  map[string]net.Conn
-	mu     sync.RWMutex
+	msg := Message{
+		Command: "ACK",
+		GUID:    GUID,
+	}
+
+	data, _ := json.Marshal(msg)
+
+	conn.Write(data)
+	conn.Close()
 }
 
 func (s *Subscriber) unsubscribeFromTopic(topic string) {
@@ -84,7 +86,11 @@ func (s *Subscriber) subscribeToTopic(topic string) {
 			break
 		}
 
-		msg := string(buf[:n])
-		fmt.Println("received:", msg, " by subscriber: ", s.Name)
+		var received Message
+		json.Unmarshal(buf[:n], &received)
+
+		msgText := string(buf[:n])
+		fmt.Println("received:", msgText, " by subscriber: ", s.Name)
+		s.sendAck(received.GUID)
 	}
 }

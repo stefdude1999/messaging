@@ -4,21 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"sync"
-	"sync/atomic"
 )
-
-type Broker struct {
-	mu          sync.RWMutex
-	activeConns atomic.Int32
-	name        string
-	subscribers map[string][]net.Conn
-}
 
 func newBroker(name string) *Broker {
 	return &Broker{
 		name:        name,
 		subscribers: make(map[string][]net.Conn),
+		publishers:  make(map[string]net.Conn),
 	}
 }
 
@@ -83,6 +75,17 @@ func (b *Broker) handleMessage(conn net.Conn) {
 
 		switch msg.Command {
 
+		case "ACK":
+			b.mu.RLock()
+			pubConn, ok := b.publishers[msg.GUID]
+			b.mu.RUnlock()
+			if !ok {
+				fmt.Println("ACK received for unknown GUID:", msg.GUID)
+				continue
+			}
+			data, _ := json.Marshal(msg)
+			pubConn.Write(data)
+
 		case "SUBSCRIBE":
 			fmt.Println("subscribe: ", msg.Topic)
 
@@ -100,9 +103,14 @@ func (b *Broker) handleMessage(conn net.Conn) {
 		case "PUBLISH":
 			fmt.Println("publish:", msg.Text)
 
+			b.mu.Lock()
+			b.publishers[msg.GUID] = conn
+			b.mu.Unlock()
+
 			b.mu.RLock()
+			data, _ := json.Marshal(msg)
 			for _, c := range b.subscribers[msg.Topic] {
-				_, err := c.Write([]byte(msg.Text))
+				_, err := c.Write(data)
 				if err != nil {
 					fmt.Println("write error:", err)
 				}
