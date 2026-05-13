@@ -4,3 +4,4 @@ cert/
 *.csr
 ca-csr.json
 ca-config.json
+server.csr
