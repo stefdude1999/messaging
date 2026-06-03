@@ -154,10 +154,10 @@ curl -X 'PUT' \
 
 ### Advanced Features
 
-- At least once delivery
-- Offset tracking
-- Consumer acknowledgement
-- Write ahead queue
+- ~At least once delivery~
+- ~Offset tracking~
+- ~Consumer acknowledgement~
+- ~Write ahead queue~
 
 ### Super Advanced Features (Way Down The Line)
 
