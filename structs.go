@@ -27,6 +27,7 @@ type Broker struct {
 	name        string
 	subscribers map[string][]net.Conn
 	publishers  map[string]net.Conn
+	wal         *WAL
 }
 
 type Publisher struct {

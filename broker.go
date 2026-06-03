@@ -20,6 +20,15 @@ func (b *Broker) initializeBroker() {
 		fmt.Println(err)
 		return
 	}
+	wal, err := CreateWAL("wal", true)
+	if err != nil {
+		fmt.Println("failed to create WAL:", err)
+		return
+	}
+	b.wal = wal
+
+	defer b.wal.Close()
+
 	b.serve(ln)
 }
 
@@ -76,6 +85,9 @@ func (b *Broker) handleMessage(conn net.Conn) {
 		switch msg.Command {
 
 		case "ACK":
+			if b.wal != nil {
+				b.wal.Remove(msg.GUID)
+			}
 			b.mu.RLock()
 			pubConn, ok := b.publishers[msg.GUID]
 			b.mu.RUnlock()
@@ -92,6 +104,12 @@ func (b *Broker) handleMessage(conn net.Conn) {
 			b.mu.Lock()
 			b.subscribers[msg.Topic] = append(b.subscribers[msg.Topic], conn)
 			b.mu.Unlock()
+			if b.wal != nil {
+				for _, pending := range b.wal.PendingForTopic(msg.Topic) {
+					data, _ := json.Marshal(pending)
+					conn.Write(data)
+				}
+			}
 
 		case "UNSUBSCRIBE":
 			fmt.Println("unsubscribe: ", msg.Topic)
@@ -101,6 +119,9 @@ func (b *Broker) handleMessage(conn net.Conn) {
 			b.mu.Unlock()
 
 		case "PUBLISH":
+			if b.wal != nil {
+				b.wal.Write(msg)
+			}
 			fmt.Println("publish:", msg.Text)
 
 			b.mu.Lock()
