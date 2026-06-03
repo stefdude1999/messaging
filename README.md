@@ -158,6 +158,7 @@ curl -X 'PUT' \
 - ~Offset tracking~
 - ~Consumer acknowledgement~
 - ~Write ahead queue~
+- Turn it into an importable library
 
 ### Super Advanced Features (Way Down The Line)
 
