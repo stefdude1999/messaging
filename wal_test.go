@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+// AI generated tests
+
 func newTestWAL(t *testing.T) (*WAL, string) {
 	t.Helper()
 	dir := t.TempDir()
